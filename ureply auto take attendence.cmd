@@ -1,1 +1,1 @@
-python "ureply auto take attendence.py"
+poetry run python "ureply auto take attendence.py"

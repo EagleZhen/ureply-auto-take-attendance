@@ -12,10 +12,13 @@ def print_divider():
     print("\n========================================\n")
 
 
-with open("./info/info.json") as f:
+with open("./info/credential.json") as f:
     info = json.load(f)
     email = info["Login ID"]
     onepass_password = info["OnePass Password"]
+    
+with open("./info/ureply.json") as f:
+    info = json.load(f)
     session_id = info["Session ID"]
     ureply_answer = info["Ureply Anwswer"]
 
