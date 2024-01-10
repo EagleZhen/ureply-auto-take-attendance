@@ -1,0 +1,1 @@
+python "ureply auto take attendence.py"

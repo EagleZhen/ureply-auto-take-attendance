@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "ureply-auto-take-attendence"
+version = "0.1.0"
+description = ""
+authors = ["EZ"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+selenium = "^4.16.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
