@@ -21,6 +21,7 @@ with open("./info/ureply.json") as f:
     info = json.load(f)
     session_id = info["Session ID"]
     ureply_answer = info["Ureply Anwswer"]
+    question_type = info["Question Type"]
 
 
 def login_cuhk():
@@ -43,13 +44,21 @@ def navigate_to_ureply():
 
 
 def answer_ureply_question():
-    xpath_expression = f'//button[@class="mc_choice_btn choice_btn mdl-button choice_{ureply_answer.lower()} mdl-js-button mdl-button--raised "]'
-    print("xpath_expression:", xpath_expression)
-    option_element = driver.find_element(By.XPATH, xpath_expression)
-    option_element.click()
-
-    print(option_element)
-
+    if (question_type == "MC"):
+        xpath_expression = f'//button[@class="mc_choice_btn choice_btn mdl-button choice_{ureply_answer.lower()} mdl-js-button mdl-button--raised "]'
+        option_element = driver.find_element(By.XPATH, xpath_expression)
+        option_element.click()
+    elif (question_type == "Typing"):
+        xpath_expression = f'//textarea[@class="mdl-textfield__input"]'
+        textbox_element = driver.find_element(By.XPATH, xpath_expression)
+        textbox_element.clear()
+        textbox_element.send_keys(ureply_answer)
+        print("textbox - xpath expression:", xpath_expression)
+        
+        xpath_expression = f'//button[@class="text_btn mdl-button mdl-js-button mdl-button--raised "]'
+        submit_button_element = driver.find_element(By.XPATH, xpath_expression)
+        submit_button_element.click()
+        print("submit button - xpath_expression:", xpath_expression)
 
 # Navigate to ureply and join the specified session
 driver = webdriver.Chrome()
