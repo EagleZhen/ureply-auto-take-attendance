@@ -9,6 +9,7 @@ readme = "README.md"
 python = "^3.12"
 selenium = "^4.16.0"
 requests = "^2.31.0"
+plyer = "^2.1.0"
 
 
 [build-system]

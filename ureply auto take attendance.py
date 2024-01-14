@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
 from datetime import datetime
+from plyer import notification
 import json
 import requests
 import urllib.parse
@@ -82,10 +83,10 @@ def answer_ureply_question():
         debug("textbox - xpath expression:", xpath_expression)
 
         # Click submit button
-        xpath_expression = f'//button[@class="text_btn mdl-button mdl-js-button mdl-button--raised "]'
-        submit_button_element = driver.find_element(By.XPATH, xpath_expression)
-        submit_button_element.click()
-        debug("submit button - xpath_expression:", xpath_expression)
+        # xpath_expression = f'//button[@class="text_btn mdl-button mdl-js-button mdl-button--raised "]'
+        # submit_button_element = driver.find_element(By.XPATH, xpath_expression)
+        # submit_button_element.click()
+        # debug("submit button - xpath_expression:", xpath_expression)
 
     print_message(f"Answered ureply question with answer \"{ureply_answer}\"")
 
@@ -128,8 +129,15 @@ while True:
                 with open("./info/ureply_retrieve.json", "w") as f:
                     data = {"Session ID": session_id, "Ureply Answer": ureply_answer, "Question Type": question_type}
                     json.dump(data, f, indent=4)
+                    
+                if (question_type == "Typing"):
+                    notification.notify(
+                        title=f"New Ureply - {session_id}",
+                        message="Remember to type your own answer!",
+                        timeout=5
+                    )
             else:
-                print_message("Error retrieving ureply info:", response.text)
+                print_message("[!] Error retrieving ureply info:", response.text)
                 continue
 
             # Navigate to ureply and join the specified session
@@ -142,7 +150,7 @@ while True:
                 WebDriverWait(driver, 10).until(EC.url_contains(login_page_url_prefix))
                 debug("Loaded CUHK login page")
             except:
-                print_message("Timeout waiting for redirect")
+                print_message("[!] Timeout waiting for redirect")
                 continue
 
             # Check if it redirected to CUHK login page
@@ -152,7 +160,7 @@ while True:
                 print_message("Redirected to CUHK login page")
                 login_cuhk()
             else:
-                print_message("Error redirecting to CUHK login page")
+                print_message("[!] Error redirecting to CUHK login page")
                 continue
 
             # Wait for the ureply page to load
@@ -160,7 +168,7 @@ while True:
                 WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//body")))
                 debug("Loaded ureply page")
             except:
-                print_message("Timeout waiting for redirect")
+                print_message("[!] Timeout waiting for redirect")
                 continue
 
             # Anwer ureply questions (MC only for now)
@@ -169,7 +177,7 @@ while True:
                 print_message(f"Joined ureply session \"{session_id}\"")
                 answer_ureply_question()
             else:
-                print_message("Error joining ureply session")
+                print_message("[!] Error joining ureply session")
                 continue
 
             # Update last retrieved time
@@ -183,6 +191,6 @@ while True:
             print_message(f"No new ureply since {last_updated_time}")
 
     else:
-        print_message("Error retrieving last updated time:", response.text)
+        print_message("[!] Error retrieving last updated time:", response.text)
 
     sleep(10)
