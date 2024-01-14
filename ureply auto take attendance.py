@@ -94,6 +94,15 @@ with open("./info/info.json") as f:
     info = json.load(f)
     database_url = info["Database URL"]
 
+take_attendance_now = input("\nDo you want to take attendance now? (y/[n]): ")
+with open("./info/last_retrieved_time.json", "w") as f:
+    if take_attendance_now == "n" or take_attendance_now == "N" or take_attendance_now == "":
+        # The script "ureply auto take attendance" will take attendance when a newer ureply is published later
+        json.dump({"Last Retrieved Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}, f, indent=4)
+    else:
+        # The script "ureply auto take attendance" will take attendance immediately
+        json.dump({"Last Retrieved Time": ""}, f, indent=4)
+
 while True:
     response = requests.get(f"{database_url}/Last Updated Time.json")
     if response.status_code == 200:
