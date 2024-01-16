@@ -6,12 +6,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 from time import sleep
 from datetime import datetime
-from win10toast import ToastNotifier
+from plyer import notification
 import json
 import requests
 import urllib.parse
-
-toaster = ToastNotifier()
 
 # Initialize CUHK credential from local file
 with open("./info/credential.json") as f:
@@ -57,13 +55,7 @@ def print_message(message, write_to_log=True, notify=False, title=""):
             log.write(formatted_datetime + " | " + message + "\n")
 
     if notify is True:
-        toaster.show_toast(
-            title=title,
-            msg=message,
-            duration=5,
-            threaded=True,
-        )
-        print("Notification sent")
+        notification.notify(title=title, message=message, timeout=3)
 
 
 def login_cuhk():
@@ -93,11 +85,11 @@ def answer_ureply_question():
     global ureply_answer, question_type
 
     try:
-        if question_type.lower().strip() == "mc":
+        if question_type == "mc":
             xpath_expression = f'//button[@class="mc_choice_btn choice_btn mdl-button choice_{ureply_answer.lower()} mdl-js-button mdl-button--raised "]'
             option_element = driver.find_element(By.XPATH, xpath_expression)
             option_element.click()
-        elif question_type.lower().strip() == "typing":
+        elif question_type == "typing":
             # Input typing answers
             xpath_expression = f'//textarea[@class="mdl-textfield__input"]'
             textbox_element = driver.find_element(By.XPATH, xpath_expression)
@@ -158,11 +150,8 @@ while True:
                         json.dump(data, f, indent=4)
 
                     if question_type == "typing":
-                        toaster.show_toast(
-                            title=f"New Typing Ureply - {session_id}",
-                            msg="Remember to type your own answer!",
-                            duration=3,
-                            threaded=True,
+                        print_message(
+                            f"Remember to type your own answer!", notify=True, title=f"New Typing Ureply - {session_id}"
                         )
                 else:
                     raise Exception(f"Error retrieving ureply info: {response.text}")
@@ -214,7 +203,7 @@ while True:
                 print_message(f"[!] Error class name: {e.__class__.__name__}")
                 print_message(f"\n\n{e}\n")
                 print_message(
-                    f"Retrying in 10 seconds...You may check whether the ureply info is correct",
+                    f"You may check whether the ureply info is correct. Retrying in 10 seconds...",
                     notify=True,
                     title="Error Occurred",
                 )

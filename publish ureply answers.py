@@ -12,6 +12,8 @@ with open("./info/info.json") as f:
 def validate_data(data):
     print("Validating data...")
     
+    data["Session ID"] = data["Session ID"].strip()
+    
     for key in data:
         if key not in ["Session ID", "Ureply Answer", "Question Type"]:
             raise Exception(f"[!] Invalid keys \"{key}\"")
@@ -62,6 +64,8 @@ def save_to_file(data):
 
 with open("./info/ureply_publish.json") as f:
     data = json.load(f)
+    print(json.dumps(data, indent=4))
+    
     try:
         data = validate_data(data)
     except Exception as e:
@@ -69,7 +73,7 @@ with open("./info/ureply_publish.json") as f:
         system("pause")
         exit()
 
-    print(json.dumps(data, indent=4))
+    # print(json.dumps(data, indent=4))
 
     confirm = input("Confirm publishing the info above? ([y]/n): ")
 
