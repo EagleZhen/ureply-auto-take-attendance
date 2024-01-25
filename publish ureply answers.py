@@ -18,12 +18,13 @@ def validate_data(data):
         if key not in ["Session ID", "Ureply Answer", "Question Type"]:
             raise Exception(f"[!] Invalid keys \"{key}\"")
 
-    question_type = data["Question Type"].lower().strip()
+    question_type = data["Question Type"].strip().lower()
     if question_type not in ["mc", "typing"]:
         raise Exception(f"[!] Invalid question type \"{question_type}\"")
 
-    ureply_answer = data["Ureply Answer"].lower().strip()
+    ureply_answer = data["Ureply Answer"].strip()
     if question_type == "mc":
+        ureply_answer = ureply_answer.lower()
         if ureply_answer.isnumeric() and 1<=int(ureply_answer)<=26:  # Convert numbers to letters
             ureply_answer = chr(int(ureply_answer) - 1 + ord('a'))
         
