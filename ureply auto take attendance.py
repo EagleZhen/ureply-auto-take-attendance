@@ -1,3 +1,4 @@
+import threading
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
@@ -10,6 +11,8 @@ from plyer import notification
 import json
 import requests
 import urllib.parse
+
+received_new_answer_event = threading.Event()
 
 # Initialize CUHK credential from local file
 with open("./info/credential.json") as f:
@@ -28,6 +31,7 @@ with open("./info/ureply_retrieve.json") as f:
 with open("./info/info.json") as f:
     info = json.load(f)
     database_url = info["Database URL"]
+    afk_time_interval = info["AFK Time Interval"]
 
 
 def print_divider():
@@ -81,6 +85,40 @@ def navigate_to_ureply():
     session_input.send_keys(Keys.RETURN)
 
 
+def check_afk_and_respond(textbox_element):
+    global ureply_answer
+    is_afk = True
+    start_time = datetime.now()
+
+    print_message("Checking whether you are AFK in the following 30 seconds...")
+
+    # Check if the textbox content is changed during the specified time interval
+    while (datetime.now() - start_time).seconds < afk_time_interval:
+        # Received new ureply answers
+        if received_new_answer_event.is_set():
+            print_message("Received new answer. Stopping AFK checking thread...")
+            return
+        
+        # Textbox content is changed manually
+        if textbox_element.get_attribute("value") != ureply_answer:
+            is_afk = False
+            print_message("Answer change detected. Stopping AFK checking thread...")
+            return
+        
+        print_message(f"Waiting for you to type your answer...{afk_time_interval - (datetime.now() - start_time).seconds} seconds left")
+        sleep(5)
+
+    # Click submit button if AFK is detected and no new answer is received
+    if (is_afk is True) and (received_new_answer_event.is_set() is False):
+        print_message("AFK detected. Answering ureply question...")
+
+        xpath_expression = f'//button[@class="text_btn mdl-button mdl-js-button mdl-button--raised "]'
+        submit_button_element = driver.find_element(By.XPATH, xpath_expression)
+        submit_button_element.click()
+        debug("submit button - xpath_expression:", xpath_expression)
+        
+        print_message(f'Answered ureply question with answer "{ureply_answer}"')
+
 def answer_ureply_question():
     global ureply_answer, question_type
 
@@ -97,13 +135,10 @@ def answer_ureply_question():
             textbox_element.send_keys(ureply_answer)
             debug("textbox - xpath expression:", xpath_expression)
 
-            # Click submit button
-            # xpath_expression = f'//button[@class="text_btn mdl-button mdl-js-button mdl-button--raised "]'
-            # submit_button_element = driver.find_element(By.XPATH, xpath_expression)
-            # submit_button_element.click()
-            # debug("submit button - xpath_expression:", xpath_expression)
-
-        print_message(f'Answered ureply question with answer "{ureply_answer}"')
+            # Check if the user is AFK and respond if necessary
+            received_new_answer_event.clear() # Set the internal flag to False
+            afk_checking_thread = threading.Thread(target=check_afk_and_respond, args=(textbox_element, ))
+            afk_checking_thread.start()
     except NoSuchElementException as e:
         print_message("[!] Couldn't find the corresponding elements.")
         raise e  # Raise exception to retry in the main loop
@@ -131,6 +166,8 @@ while True:
         if last_updated_time > last_retrieved_time:
             try:
                 print_divider()
+
+                received_new_answer_event.set() # Set the internal flag to True
 
                 # Get ureply info from database
                 response = requests.get(f"{database_url}/{urllib.parse.quote(last_updated_time)}.json")
@@ -184,7 +221,7 @@ while True:
                 except:
                     raise Exception("Timeout waiting for redirect to ureply page")
 
-                # Anwer ureply questions (MC only for now)
+                # Anwer ureply questions
                 debug("Current URL:", driver.current_url)
                 if driver.current_url == "https://server4.ureply.mobi/student/cads/joinsession.php":
                     print_message(f'Joined ureply session "{session_id}"')

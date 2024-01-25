@@ -13,8 +13,10 @@ with open("./info/credential.json", "w") as f:
 
 print("\nInput your database info (will be saved locally only)")
 database_url = getpass("Database URL: ")
+print("AFK Checking Time Interval is set to be 30 seconds by default. You can change it in the \"info.json\" file if necessary.")
+
 with open("./info/info.json", "w") as f:
-    json.dump({"Database URL": database_url}, f, indent=4)
+    json.dump({"Database URL": database_url, "AFK Time Interval": 30}, f, indent=4)
 
 with open("./info/ureply_retrieve.json", "w") as f:
     json.dump({"Session ID": "", "Ureply Answer": "", "Question Type": ""}, f, indent=4)
