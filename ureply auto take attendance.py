@@ -85,6 +85,18 @@ def login_cuhk():
     password_input.send_keys(Keys.RETURN)
 
 
+def check_is_ureply_answer_submitted():
+    result = driver.find_element(
+        By.XPATH, "//p[@class='title']/span[@style='color:red;']"
+    )
+    current_value = result.text
+
+    if ureply_answer.lower() in current_value.lower():
+        print_message(f'Answered uReply question with answer "{ureply_answer}"')
+    else:
+        raise Exception(f"Error answering uReply question with answer {ureply_answer}")
+
+
 def check_afk_and_respond(textbox_element):
     global ureply_answer
     is_afk = True
@@ -121,7 +133,7 @@ def check_afk_and_respond(textbox_element):
         submit_button_element.click()
         debug("submit button - xpath_expression:", xpath_expression)
 
-        print_message(f'Answered typing question with answer "{ureply_answer}"')
+        check_is_ureply_answer_submitted()
 
 
 def answer_ureply_question():
@@ -141,13 +153,8 @@ def answer_ureply_question():
                     "Timeout waiting for the mc choice button to be clickable"
                 )
             choice_element.click()
-            print_message(f'Answered mc question with answer "{ureply_answer}"')
 
-            result = span_element = driver.find_element(
-                By.XPATH, "//p[@class='title']/span[@style='color:red;']"
-            )
-            current_value = span_element.text
-            print(current_value)
+            check_is_ureply_answer_submitted()
 
         elif question_type == "typing":
             # Input typing answers
