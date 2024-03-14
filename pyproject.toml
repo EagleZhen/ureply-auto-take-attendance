@@ -1,16 +1,19 @@
 [tool.poetry]
-name = "ureply-auto-take-attendence"
+name = "ureply-auto-take-attendance"
 version = "0.1.0"
 description = ""
 authors = ["EZ"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = ">=3.12,<3.13"
 selenium = "^4.16.0"
 requests = "^2.31.0"
 plyer = "^2.1.0"
 setuptools = "^69.0.3"
+pyinstaller = "^6.3.0"
+discord = "^2.3.2"
+firebase-admin = "^6.5.0"
 
 
 [build-system]
