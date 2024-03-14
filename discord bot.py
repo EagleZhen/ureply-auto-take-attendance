@@ -8,7 +8,7 @@ from datetime import datetime
 
 # Initialize Firebase Admin SDK
 cred = credentials.Certificate("./info/service_account_key.json")
-with open("./info/info.json") as f:
+with open("./info for discord bot/discord_bot_info.json") as f:
     info = json.load(f)
     database_url = info["Database URL"]
     discord_bot_token = info["Discord Bot Token"]
