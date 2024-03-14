@@ -66,24 +66,23 @@ def print_message(message, write_to_log=True, notify=False, title=""):
 def login_cuhk():
     global email, onepass_password
 
-    login_id_input = driver.find_element(By.ID, "userNameInput")
-    login_id_input.send_keys(email)
+    # Ensure the input area is clickable before sending keys
+    try:
+        login_id_input = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "userNameInput"))
+        )
+        password_input = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "passwordInput"))
+        )
+    except:
+        raise Exception(
+            "Timeout waiting for the input area in CUHK login page to be clickable"
+        )
 
-    password_input = driver.find_element(By.ID, "passwordInput")
+    login_id_input.send_keys(email)
     password_input.send_keys(onepass_password)
 
     password_input.send_keys(Keys.RETURN)
-
-
-def navigate_to_ureply():
-    global session_id
-
-    driver.get("https://server4.ureply.mobi/")
-    session_input = driver.find_element(
-        By.ID, "sessionid"
-    )  # https://selenium-python.readthedocs.io/locating-elements.html
-    session_input.send_keys(session_id)
-    session_input.send_keys(Keys.RETURN)
 
 
 def check_afk_and_respond(textbox_element):
@@ -131,16 +130,39 @@ def answer_ureply_question():
     try:
         if question_type == "mc":
             xpath_expression = f'//button[@class="mc_choice_btn choice_btn mdl-button choice_{ureply_answer.lower()} mdl-js-button mdl-button--raised "]'
-            option_element = driver.find_element(By.XPATH, xpath_expression)
-            option_element.click()
+            try:
+                choice_element = WebDriverWait(
+                    driver, 10
+                ).until(  # ensure the button is clickable before clicking
+                    EC.element_to_be_clickable((By.XPATH, xpath_expression))
+                )
+            except:
+                raise Exception(
+                    "Timeout waiting for the mc choice button to be clickable"
+                )
+            choice_element.click()
             print_message(f'Answered mc question with answer "{ureply_answer}"')
+
+            result = span_element = driver.find_element(
+                By.XPATH, "//p[@class='title']/span[@style='color:red;']"
+            )
+            current_value = span_element.text
+            print(current_value)
 
         elif question_type == "typing":
             # Input typing answers
             xpath_expression = f'//textarea[@class="mdl-textfield__input"]'
-            textbox_element = driver.find_element(By.XPATH, xpath_expression)
-            textbox_element.clear()
-            textbox_element.send_keys(ureply_answer)
+            try:
+                textbox_element = WebDriverWait(driver, 10).until(
+                    EC.visibility_of_element_located((By.XPATH, xpath_expression))
+                )
+            except:
+                raise Exception(
+                    "Timeout waiting for the textbox to be ready in the typing question"
+                )
+            driver.execute_script(
+                f"arguments[0].value = '{ureply_answer}';", textbox_element
+            )
             debug("textbox - xpath expression:", xpath_expression)
 
             # Check if the user is AFK and respond if necessary
@@ -151,6 +173,7 @@ def answer_ureply_question():
             afk_checking_thread.start()
     except Exception as e:
         raise e  # Raise exception to retry in the main loop
+
 
 take_attendance_now = input("\nDo you want to take attendance now? (y/[n]): ")
 with open("./info/last_retrieved_time.json", "w") as f:
@@ -218,7 +241,9 @@ while True:
 
                     # Navigate to ureply and join the specified session
                     driver = webdriver.Chrome()
-                    navigate_to_ureply()
+                    driver.get(
+                        f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}"
+                    )
 
                     # Wait for the cuhk login page to load
                     login_page_url_prefix = "https://sts.cuhk.edu.hk/adfs/ls/"
