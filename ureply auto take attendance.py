@@ -56,7 +56,7 @@ def print_message(message, write_to_log=True, notify=False, title=""):
     print(formatted_datetime, "|", message)
 
     if write_to_log:
-        with open("./info/log.txt", "a") as log:
+        with open("./info/log.txt", "a", encoding="utf-8") as log:
             log.write(formatted_datetime + " | " + message + "\n")
 
     if notify is True:
@@ -102,7 +102,9 @@ def check_afk_and_respond(textbox_element):
     is_afk = True
     start_time = datetime.now()
 
-    print_message("Checking whether you are AFK in the following 30 seconds...")
+    print_message(
+        f"Checking whether you are AFK in the following {afk_time_interval} seconds..."
+    )
 
     # Check if the textbox content is changed during the specified time interval
     while (datetime.now() - start_time).seconds < afk_time_interval:
@@ -304,7 +306,7 @@ while True:
                     print_message(f"[!] Error class name: {e.__class__.__name__}")
                     print_message(f"\n\n{e}\n")
                     print_message(
-                        f"You may check whether the ureply info is correct. Retrying in 10 seconds...",
+                        f"You may check whether the ureply info is correct. Retrying in {fetching_time_interval} seconds...",
                         notify=True,
                         title="Error Occurred",
                     )

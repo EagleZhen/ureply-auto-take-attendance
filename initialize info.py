@@ -21,14 +21,16 @@ database_url = getpass("Database URL: ")
 
 
 print(
-    'AFK Checking Time Interval is set to be 30 seconds by default. You can change it in the "info.json" file if necessary.'
+    '\nFetching Time Interval is set to be 5 seconds by default.\n'
+    'AFK Checking Time Interval is set to be 30 seconds by default.\n'
+    'You can change it in the "info.json" file if necessary.'
 )
 
 with open("./info/info.json", "w") as f:
     json.dump(
         {
             "Database URL": database_url,
-            "Fetching Time Interval": 10,
+            "Fetching Time Interval": 5,
             "AFK Time Interval": 30,
         },
         f,
