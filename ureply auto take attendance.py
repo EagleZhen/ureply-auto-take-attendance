@@ -13,7 +13,6 @@ import requests
 import urllib.parse
 
 received_new_answer_event = threading.Event()
-sleep_time_interval = 10  # seconds
 
 # Initialize CUHK credential from local file
 with open("./info/credential.json") as f:
@@ -33,6 +32,7 @@ with open("./info/info.json") as f:
     info = json.load(f)
     database_url = info["Database URL"]
     afk_time_interval = info["AFK Time Interval"]
+    fetching_time_interval = info["Fetching Time Interval"]
 
 
 def print_divider():
@@ -321,9 +321,9 @@ while True:
         print_message(f"[!] Error class name: {e.__class__.__name__}")
         print_message(f"\n\n{e}\n")
         print_message(
-            message=f"You may check whether your internet is connected. Retrying in {sleep_time_interval} seconds...",
+            message=f"You may check whether your internet is connected. Retrying in {fetching_time_interval} seconds...",
             notify=True,
             title="Error Occurred",
         )
 
-    sleep(sleep_time_interval)
+    sleep(fetching_time_interval)
