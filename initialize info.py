@@ -39,6 +39,9 @@ with open("./info/info.json", "w") as f:
 
 with open("./info/ureply_retrieve.json", "w") as f:
     json.dump({"Session ID": "", "Ureply Answer": "", "Question Type": ""}, f, indent=4)
+    
+with open("./info/ureply_publish.json", "w") as f:
+    json.dump({"Session ID": "", "Ureply Answer": "", "Question Type": ""}, f, indent=4)
 
 print(
     '\nInitialization Completed! You can double check the information in the "info" folder.'
