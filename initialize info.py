@@ -1,9 +1,14 @@
 import json
-from os import system, makedirs
+from os import system, makedirs, path
 from getpass import getpass
 from datetime import datetime
+from send2trash import send2trash
 
-makedirs("./info", exist_ok=True)
+folder_path="./info"
+# Remove the info folder if it exists to start fresh
+if path.exists(folder_path):
+    send2trash(folder_path)
+makedirs(folder_path, exist_ok=True)
 
 print("Input Your CUHK Credentials for auto login (will be saved locally only)")
 login_id = input("Login ID: ")
@@ -19,9 +24,6 @@ with open("./info/info.json", "w") as f:
     json.dump({"Database URL": database_url, "AFK Time Interval": 30}, f, indent=4)
 
 with open("./info/ureply_retrieve.json", "w") as f:
-    json.dump({"Session ID": "", "Ureply Answer": "", "Question Type": ""}, f, indent=4)
-
-with open("./info/ureply_publish.json", "w") as f:
     json.dump({"Session ID": "", "Ureply Answer": "", "Question Type": ""}, f, indent=4)
 
 print('\nInitialization Completed! You can double check the information in the "info" folder.')

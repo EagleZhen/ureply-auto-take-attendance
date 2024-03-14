@@ -14,6 +14,7 @@ setuptools = "^69.0.3"
 pyinstaller = "^6.3.0"
 discord = "^2.3.2"
 firebase-admin = "^6.5.0"
+send2trash = "^1.8.2"
 
 
 [build-system]
