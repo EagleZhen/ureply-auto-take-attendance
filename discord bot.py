@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate("./info/service_account_key.json")
+cred = credentials.Certificate("./info for discord bot/service_account_key.json")
 with open("./info for discord bot/discord_bot_info.json") as f:
     info = json.load(f)
     database_url = info["Database URL"]

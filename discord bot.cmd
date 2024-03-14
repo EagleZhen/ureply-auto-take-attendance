@@ -1,0 +1,1 @@
+poetry run "discord bot.py"

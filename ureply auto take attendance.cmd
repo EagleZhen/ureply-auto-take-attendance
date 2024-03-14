@@ -1,0 +1,1 @@
+poetry run "ureply auto take attendance.py"
