@@ -86,15 +86,25 @@ def login_cuhk():
 
 
 def check_is_ureply_answer_submitted():
-    result = driver.find_element(
-        By.XPATH, "//p[@class='title']/span[@style='color:red;']"
+    # Define the locator for the element
+    span_locator = (By.XPATH, "//p[@class='title']/span[@style='color:red;']")
+
+    # Wait for the element's text to change
+    WebDriverWait(driver, 10).until(
+        lambda driver: ureply_answer.lower()
+        in driver.find_element(*span_locator).text.lower()
     )
-    current_value = result.text
+
+    # After the wait, retrieve the element again and check its text
+    result = driver.find_element(*span_locator)
+    current_value = result.text.strip()
 
     if ureply_answer.lower() in current_value.lower():
         print_message(f'Answered uReply question with answer "{ureply_answer}"')
     else:
-        raise Exception(f"Error answering uReply question with answer {ureply_answer}")
+        raise Exception(
+            f'Error answering uReply question with answer "{ureply_answer}"'
+        )
 
 
 def check_afk_and_respond(textbox_element):
