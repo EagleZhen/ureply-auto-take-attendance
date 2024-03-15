@@ -20,21 +20,23 @@ bot = commands.Bot(command_prefix="!", intents=discord.Intents.default())
 ref = db.reference("/")
 last_updated_time_ref = ref.child("Last Updated Time")
 
-
+whether_publish_answer = True
 def publish_answer(current_time, session_id, question_type, ureply_answer):
-    ref.child(
-        current_time
-    ).set(  # push new ureply info to the database with current time as key
-        {
-            "Session ID": session_id,
-            "Question Type": question_type,
-            "Ureply Answer": ureply_answer,
-        }
-    )
+    if whether_publish_answer:
+        ref.child(current_time).set(  # push new ureply info to the database with current time as key
+            {
+                "Session ID": session_id,
+                "Question Type": question_type,
+                "Ureply Answer": ureply_answer,
+            }
+        )
 
-    last_updated_time_ref.update(  # update last updated time to current time
-        {"Last Updated Time": current_time}
-    )
+        last_updated_time_ref.update(  # update last updated time to current time
+            {"Last Updated Time": current_time}
+        )
+        print("Published uReply answer to the database")
+    else:
+        print("uReply answer not published to the database")
 
 
 @bot.event
@@ -47,7 +49,7 @@ async def on_ready():
         print(f"Failed to sync slash commands: {e}")
 
 
-@bot.tree.command(name="ureply")
+@bot.tree.command(name="ureply", description="Publish uReply answer to the database")
 @app_commands.describe(
     session_id="uReply Session ID - case insensitive",
     question_type='Question Type - "mc" or "typing"',
@@ -66,6 +68,7 @@ async def ureply(
     question_type: str,
     ureply_answer: str,
 ):
+    # publish the uReply answer to the firebase realtime database
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     publish_answer(
         current_time=current_time,
@@ -82,8 +85,10 @@ async def ureply(
         style=ButtonStyle.link,
     )
     view.add_item(button)
-    
-    if (question_type=="typing"): # if the question type is "typing", send the uReply answer in a separate message
+
+    if (
+        question_type == "typing"
+    ):  # if the question type is "typing", send the uReply answer in a separate message
         await interaction.response.send_message(
             f"@everyone\n"
             f"- Time: {current_time}\n"
@@ -96,7 +101,9 @@ async def ureply(
         # send the uReply answer as a separate message so that it can be copied easily
         await interaction.followup.send(f"{ureply_answer}")
 
-    elif (question_type=="mc"): # if the question type is "mc", send the uReply answer in the same message
+    elif (
+        question_type == "mc"
+    ):  # if the question type is "mc", send the uReply answer in the same message
         await interaction.response.send_message(
             f"@everyone\n"
             f"- Time: {current_time}\n"
@@ -106,6 +113,25 @@ async def ureply(
             allowed_mentions=discord.AllowedMentions(everyone=True),
             view=view,
         )
+        
+    if whether_publish_answer is False:
+        await interaction.followup.send("⚠️uReply answer not published to the database")
+        
+@bot.tree.command(name="get_ureply", description="Get the latest uReply answer")
+async def get_ureply(interaction: discord.Interaction):
+    last_updated_time = last_updated_time_ref.get()["Last Updated Time"]
+    ureply_content = ref.child(last_updated_time).get()
+    await interaction.response.send_message(
+        f"Latest uReply Answer:\n"
+        f"- Time: {last_updated_time}\n"
+        f"- Session ID: {ureply_content["Session ID"]}\n"
+        f"- Question Type: {ureply_content["Question Type"]}\n"
+        f"- uReply Answer: {ureply_content["Ureply Answer"]}"
+    )
+
+@bot.tree.command(name="test", description="Check if the bot is ready")
+async def test(interaction: discord.Interaction):
+    await interaction.response.send_message("Yo check")
 
 
 bot.run(discord_bot_token)
