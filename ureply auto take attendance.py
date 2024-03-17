@@ -174,7 +174,7 @@ def answer_ureply_question():
                 )
             except:
                 raise Exception(
-                    "Timeout waiting for the mc choice button to be clickable"
+                    f'Timeout waiting for the mc choice button "{ureply_answer}" to be clickable'
                 )
             choice_element.click()
 
@@ -268,7 +268,7 @@ while True:
                         if question_type == "typing":
                             message = "Remember to type your own answers!"
                         elif question_type == "mc":
-                            message = f"The mc answer may be {ureply_answer.upper()}"
+                            message = f"You may update the answer if necessary."
 
                         print_message(
                             message,
