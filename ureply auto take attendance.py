@@ -88,7 +88,7 @@ def login_cuhk():
         )
     except:
         raise Exception(
-            "Timeout waiting for the input area in CUHK login page to be clickable"
+            "Timeout waiting for the input area in CUHK login page to be clickable."
         )
 
     login_id_input.send_keys(email)
@@ -115,7 +115,7 @@ def check_is_ureply_answer_submitted():
         print_message(f'Answered uReply question with answer "{ureply_answer}"')
     else:
         raise Exception(
-            f'Error answering uReply question with answer "{ureply_answer}"'
+            f'An error occurred while answering uReply question with answer "{ureply_answer}"'
         )
 
 
@@ -132,13 +132,13 @@ def check_afk_and_respond(textbox_element):
     while (datetime.now() - start_time).seconds < afk_time_interval:
         # Received new ureply answers
         if received_new_answer_event.is_set():
-            print_message("Received new answer. Stopping AFK checking thread...")
+            print_message("Received a new uReply. Stopping AFK checking...")
             return
 
         # Textbox content is changed manually
         if textbox_element.get_attribute("value") != ureply_answer:
             is_afk = False
-            print_message("Answer change detected. Stopping AFK checking thread...")
+            print_message("Detected answer change. Stopping AFK checking...")
             return
 
         print_message(
@@ -174,7 +174,7 @@ def answer_ureply_question():
                 )
             except:
                 raise Exception(
-                    f'Timeout waiting for the mc choice button "{ureply_answer}" to be clickable'
+                    f'Timeout waiting for the mc choice button "{ureply_answer}" to be clickable. Check if this choice is valid.'
                 )
             choice_element.click()
 
