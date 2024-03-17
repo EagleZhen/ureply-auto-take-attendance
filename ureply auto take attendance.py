@@ -4,7 +4,11 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import (
+    UnexpectedAlertPresentException,
+    TimeoutException,
+    WebDriverException,
+)
 from time import sleep
 from datetime import datetime
 from plyer import notification
@@ -61,6 +65,14 @@ def print_message(message, write_to_log=True, notify=False, title=""):
 
     if notify is True:
         notification.notify(title=title, message=message, timeout=5)
+
+# Retry with increasing time interval up to 30 seconds
+def get_retry_time_interval(status: str = None) -> int:
+    global retry_count
+    if (status == "error"): retry_count += 1
+    elif (status == "default"): retry_count = 0
+    
+    return min(30, fetching_time_interval + retry_count * 5)
 
 
 def login_cuhk():
@@ -191,6 +203,7 @@ def answer_ureply_question():
             )
             afk_checking_thread.start()
     except Exception as e:
+        print_message("An error occurred while answering the uReply question")
         raise e  # Raise exception to retry in the main loop
 
 
@@ -211,6 +224,7 @@ with open("./info/last_retrieved_time.json", "w") as f:
         # The script "ureply auto take attendance" will take attendance immediately
         json.dump({"Last Retrieved Time": ""}, f, indent=4)
 
+retry_count = 0
 while True:
     try:
         response = requests.get(f"{database_url}/Last Updated Time.json")
@@ -247,63 +261,67 @@ while True:
                             }
                             json.dump(data, f, indent=4)
 
-                        if question_type == "typing":
-                            print_message(
-                                f"Remember to type your own answer!",
-                                notify=True,
-                                title=f"New Typing Ureply - {session_id}",
-                            )
-                    else:
-                        raise Exception(
-                            f"Error retrieving ureply info: {response.text}"
+                        print_message(
+                            f"Received a new {question_type} uReply - {session_id}"
                         )
 
-                    # Navigate to ureply and join the specified session
+                        if question_type == "typing":
+                            message = "Remember to type your own answers!"
+                        elif question_type == "mc":
+                            message = f"The mc answer may be {ureply_answer.upper()}"
+
+                        print_message(
+                            message,
+                            notify=True,
+                            title=f"New {question_type} uReply - {session_id}",
+                        )
+                    else:
+                        raise Exception(
+                            f"An error occurred while fetching ureply info: {response.text}"
+                        )
+
+                    # Joining uReply with the specified session ID
                     driver = webdriver.Chrome()
+                    driver.set_page_load_timeout(10) # Prevent infinite page loading due to network lost
                     driver.get(
                         f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}"
                     )
 
-                    # Wait for the cuhk login page to load
-                    login_page_url_prefix = "https://sts.cuhk.edu.hk/adfs/ls/"
+                    # CUHK login page
+                    if session_id.startswith("L"):  # session that requires login
+                        try:
+                            WebDriverWait(driver, 10).until(
+                                # ensure the URL contains the specified string, i.e. it is on the CUHK login page
+                                EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
+                            )
+                            print_message("Redirected to CUHK login page")
+                            login_cuhk()  # input CUHK credential
+                        except Exception as e:
+                            print_message("An error occurred on CUHK login page")
+                            raise e
+
+                    # uReply page
                     try:
                         WebDriverWait(driver, 10).until(
-                            EC.url_contains(login_page_url_prefix)
+                            # ensure the URL is exactly the specified URL, i.e. it is on the uReply page
+                            EC.url_to_be(
+                                "https://server4.ureply.mobi/student/cads/joinsession.php"
+                            )
                         )
-                        debug("Loaded CUHK login page")
-                    except:
-                        raise Exception(
-                            "Timeout waiting for redirect to CUHK login page"
-                        )
-
-                    # Check if it redirected to CUHK login page
-                    debug("Current URL:", driver.current_url)
-                    if login_page_url_prefix in driver.current_url:
-                        # Handle CUHK login (enter credentials)
-                        print_message("Redirected to CUHK login page")
-                        login_cuhk()
-                    else:
-                        raise Exception("Error redirecting to CUHK login page")
-
-                    # Wait for the ureply page to load
-                    try:
-                        WebDriverWait(driver, 10).until(
-                            EC.presence_of_element_located((By.XPATH, "//body"))
-                        )
-                        debug("Loaded ureply page")
-                    except:
-                        raise Exception("Timeout waiting for redirect to ureply page")
-
-                    # Anwer ureply questions
-                    debug("Current URL:", driver.current_url)
-                    if (
-                        driver.current_url
-                        == "https://server4.ureply.mobi/student/cads/joinsession.php"
-                    ):
                         print_message(f'Joined ureply session "{session_id}"')
                         answer_ureply_question()
-                    else:
-                        raise Exception("Error joining ureply session")
+
+                    # Invalid session number / session ended
+                    except UnexpectedAlertPresentException as e:
+                        print_message(
+                            f"[!] {e.alert_text} - The session may have ended."
+                        )
+                        if e.alert_text != "Invalid session number":
+                            print_message("An uncommon alert was present")
+                            raise e
+                    except Exception as e:
+                        print_message("An error occurred while joining ureply session")
+                        raise e
 
                     # Update last retrieved time
                     with open("./info/last_retrieved_time.json", "w") as f:
@@ -311,15 +329,9 @@ while True:
                         json.dump(data, f, indent=4)
 
                     print_divider()
-
                 except Exception as e:
-                    print_message(f"[!] Error class name: {e.__class__.__name__}")
-                    print_message(f"\n\n{e}\n")
-                    print_message(
-                        f"You may check whether the ureply info is correct. Retrying in {fetching_time_interval} seconds...",
-                        notify=True,
-                        title="Error Occurred",
-                    )
+                    print_message("An error occurred while handling the new uReply")
+                    raise e
 
             else:
                 print_message(
@@ -327,15 +339,27 @@ while True:
                 )
 
         else:
-            print_message(f"[!] Error retrieving last updated time: {response.text}")
-
+            raise Exception(
+                f"[!] An error occurred while retrieving last updated time: {response.text}"
+            )
+    except (
+        requests.ConnectionError,
+        TimeoutException,
+    ) as e:  # Network error from firebase request or selenium timeout
+        print_message(f"[!] Error class name: {e.__class__.__name__}")
+        print_message(f"\n\n{e}\n")
+        print_message(
+            f"Your network may be disconnected. Retry in {get_retry_time_interval("error")} seconds...",
+            notify=True,
+            title=f"{e.__class__.__name__}",
+        )
     except Exception as e:
         print_message(f"[!] Error class name: {e.__class__.__name__}")
         print_message(f"\n\n{e}\n")
         print_message(
-            message=f"You may check whether your internet is connected. Retrying in {fetching_time_interval} seconds...",
+            message=f"Retry in {get_retry_time_interval("error")} seconds...",
             notify=True,
-            title="Error Occurred",
+            title=f"{e.__class__.__name__}",
         )
 
-    sleep(fetching_time_interval)
+    sleep(get_retry_time_interval())  # Retry with increasing interval up to 30 seconds
