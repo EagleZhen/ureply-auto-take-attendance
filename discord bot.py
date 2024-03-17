@@ -121,12 +121,23 @@ async def ureply(
 async def get_ureply(interaction: discord.Interaction):
     last_updated_time = last_updated_time_ref.get()["Last Updated Time"]
     ureply_content = ref.child(last_updated_time).get()
+    
+    # add a button to the message to allow users to open the uReply link with the session ID quickly
+    view = View()
+    button = Button(
+        label="uReply Link",
+        url=f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={ureply_content["Session ID"]}",
+        style=ButtonStyle.link,
+    )
+    view.add_item(button)
+    
     await interaction.response.send_message(
         f"Latest uReply Answer:\n"
         f"- Time: {last_updated_time}\n"
         f"- Session ID: {ureply_content["Session ID"]}\n"
         f"- Question Type: {ureply_content["Question Type"]}\n"
-        f"- uReply Answer: {ureply_content["Ureply Answer"]}"
+        f"- uReply Answer: {ureply_content["Ureply Answer"]}",
+        view=view,
     )
 
 @bot.tree.command(name="test", description="Check if the bot is ready")
