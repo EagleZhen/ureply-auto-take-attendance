@@ -18,6 +18,7 @@ import urllib.parse
 from random import randint
 
 received_new_answer_event = threading.Event()
+afk_checking_thread = None
 
 # Initialize CUHK credential from local file
 with open("./info/credential.json") as f:
@@ -134,11 +135,12 @@ def check_afk_and_respond(textbox_element):
     )
 
     # Check if the textbox content is changed during the specified time interval
+    check_count = 0
     while (datetime.now() - start_time).seconds < afk_time_interval:
         # Received new ureply answers
         if received_new_answer_event.is_set():
             print_message("Received a new uReply. Stopping AFK checking...")
-            return
+            break
 
         # Textbox content is changed manually
         if textbox_element.get_attribute("value") != ureply_answer:
@@ -146,14 +148,19 @@ def check_afk_and_respond(textbox_element):
             print_message("Detected answer change. Stopping AFK checking...")
             return
 
-        print_message(
-            f"Waiting for you to type your answer...{afk_time_interval - (datetime.now() - start_time).seconds} seconds left"
-        )
-        sleep(5)
+        # Print the checking message every 5 seconds
+        if check_count % 5 == 0:
+            print_message(
+                f"Waiting for you to type your answer...{afk_time_interval - (datetime.now() - start_time).seconds} seconds left"
+            )
 
-    # Click submit button if AFK is detected and no new answer is received
-    if (is_afk is True) and (received_new_answer_event.is_set() is False):
-        print_message("AFK detected. Answering ureply question...")
+        # Check every 1 second
+        sleep(1)
+        check_count += 1
+
+    # Submit the answer if AFK is detected OR received a new uReply
+    if (is_afk is True) or (received_new_answer_event.is_set()):
+        print_message(f"{'AFK detected. ' if is_afk is True else ''}Answering ureply question...")
 
         xpath_expression = (
             f'//button[@class="text_btn mdl-button mdl-js-button mdl-button--raised "]'
@@ -166,7 +173,7 @@ def check_afk_and_respond(textbox_element):
 
 
 def answer_ureply_question():
-    global ureply_answer, question_type
+    global ureply_answer, question_type, afk_checking_thread
 
     try:
         if question_type == "mc":
@@ -242,9 +249,11 @@ while True:
             # Handle new ureplies
             if last_updated_time > last_retrieved_time:
                 try:
-                    print_divider()
+                    received_new_answer_event.set()  # Set the internal flag to True to stop AFK checking immediately
+                    if afk_checking_thread is not None:
+                        afk_checking_thread.join() # Wait for the thread to finish answering the previous question
 
-                    received_new_answer_event.set()  # Set the internal flag to True
+                    print_divider()
 
                     # Get ureply info from database
                     response = requests.get(
@@ -339,7 +348,7 @@ while True:
                         data = {"Last Retrieved Time": last_updated_time}
                         json.dump(data, f, indent=4)
 
-                        print_divider()
+                    print_divider()
 
                 except Exception as e:
                     print_message("An error occurred while handling the new uReply")
