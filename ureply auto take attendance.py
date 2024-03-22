@@ -15,6 +15,7 @@ from plyer import notification
 import json
 import requests
 import urllib.parse
+from random import randint
 
 received_new_answer_event = threading.Event()
 
@@ -66,13 +67,17 @@ def print_message(message, write_to_log=True, notify=False, title=""):
     if notify is True:
         notification.notify(title=title, message=message, timeout=5)
 
+
 # Retry with increasing time interval up to 30 seconds
 def get_retry_time_interval(status: str = None) -> int:
-    global retry_count
-    if (status == "error"): retry_count += 1
-    elif (status == "default"): retry_count = 0
+    global fetching_time_interval
     
-    return min(30, fetching_time_interval + retry_count * 5)
+    if status == "error":
+        fetching_time_interval += 5
+    elif status == "default":
+        fetching_time_interval = 5
+
+    return min(30, fetching_time_interval)
 
 
 def login_cuhk():
@@ -224,7 +229,6 @@ with open("./info/last_retrieved_time.json", "w") as f:
         # The script "ureply auto take attendance" will take attendance immediately
         json.dump({"Last Retrieved Time": ""}, f, indent=4)
 
-retry_count = 0
 while True:
     try:
         response = requests.get(f"{database_url}/Last Updated Time.json")
@@ -261,34 +265,39 @@ while True:
                             }
                             json.dump(data, f, indent=4)
 
-                        print_message(
+                        print_message( # for logging
                             f"Received a new {question_type} uReply - {session_id}"
                         )
 
-                        if question_type == "typing":
-                            message = "Remember to type your own answers!"
-                        elif question_type == "mc":
-                            message = f"You may update the answer if necessary."
-
-                        print_message(
-                            message,
-                            notify=True,
-                            title=f"New {question_type} uReply - {session_id}",
-                        )
                     else:
                         raise Exception(
                             f"An error occurred while fetching ureply info: {response.text}"
                         )
 
-                    # Joining uReply with the specified session ID
-                    driver = webdriver.Chrome()
-                    driver.set_page_load_timeout(10) # Prevent infinite page loading due to network lost
-                    driver.get(
-                        f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}"
-                    )
+                    
+                    if (session_id.startswith("L")): # only perform actions if the session requires login (i.e. attendance taking)
+                        if question_type == "typing":
+                            message = "Remember to type your own answers!"
+                        elif question_type == "mc":
+                            message = "Note that the answer may not be always correct."
 
-                    # CUHK login page
-                    if session_id.startswith("L"):  # session that requires login
+                        print_message( # for desktop notification
+                            message,
+                            notify=True,
+                            title=f"New {question_type} uReply - {session_id}",
+                        )
+                        
+                        # Joining uReply with the specified session ID
+                        driver = webdriver.Chrome()
+                        driver.set_page_load_timeout(
+                            10
+                        )  # Prevent infinite page loading due to network lost
+                        
+                        driver.get( # This url always require login
+                            f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}"
+                        )
+                        
+                        # CUHK login page
                         try:
                             WebDriverWait(driver, 10).until(
                                 # ensure the URL contains the specified string, i.e. it is on the CUHK login page
@@ -300,35 +309,38 @@ while True:
                             print_message("An error occurred on CUHK login page")
                             raise e
 
-                    # uReply page
-                    try:
-                        WebDriverWait(driver, 10).until(
-                            # ensure the URL is exactly the specified URL, i.e. it is on the uReply page
-                            EC.url_to_be(
-                                "https://server4.ureply.mobi/student/cads/joinsession.php"
+                        # uReply page
+                        try:
+                            WebDriverWait(driver, 10).until(
+                                # ensure the URL is exactly the specified URL, i.e. it is on the uReply page
+                                EC.url_to_be(
+                                    "https://server4.ureply.mobi/student/cads/joinsession.php"
+                                )
                             )
-                        )
-                        print_message(f'Joined ureply session "{session_id}"')
-                        answer_ureply_question()
+                            print_message(f'Joined ureply session "{session_id}"')
+                            answer_ureply_question()
 
-                    # Invalid session number / session ended
-                    except UnexpectedAlertPresentException as e:
-                        print_message(
-                            f"[!] {e.alert_text} - The session may have ended."
-                        )
-                        if e.alert_text != "Invalid session number":
-                            print_message("An uncommon alert was present")
+                        # Invalid session number / session ended
+                        except UnexpectedAlertPresentException as e:
+                            print_message(
+                                f"[!] {e.alert_text} - The session may have ended."
+                            )
+                            if e.alert_text != "Invalid session number":
+                                print_message("An uncommon alert was present")
+                                raise e
+                        except Exception as e:
+                            print_message("An error occurred while joining ureply session")
                             raise e
-                    except Exception as e:
-                        print_message("An error occurred while joining ureply session")
-                        raise e
+                    else:
+                        print_message("This session does not require login. Skipping...")
 
                     # Update last retrieved time
                     with open("./info/last_retrieved_time.json", "w") as f:
                         data = {"Last Retrieved Time": last_updated_time}
                         json.dump(data, f, indent=4)
 
-                    print_divider()
+                        print_divider()
+
                 except Exception as e:
                     print_message("An error occurred while handling the new uReply")
                     raise e
@@ -349,7 +361,7 @@ while True:
         print_message(f"[!] Error class name: {e.__class__.__name__}")
         print_message(f"\n\n{e}\n")
         print_message(
-            f"Your network may be disconnected. Retry in {get_retry_time_interval("error")} seconds...",
+            f'Your network may be disconnected. Retry in {get_retry_time_interval("error")} seconds...',
             notify=True,
             title=f"{e.__class__.__name__}",
         )
@@ -357,7 +369,7 @@ while True:
         print_message(f"[!] Error class name: {e.__class__.__name__}")
         print_message(f"\n\n{e}\n")
         print_message(
-            message=f"Retry in {get_retry_time_interval("error")} seconds...",
+            message=f'Retry in {get_retry_time_interval("error")} seconds...',
             notify=True,
             title=f"{e.__class__.__name__}",
         )
