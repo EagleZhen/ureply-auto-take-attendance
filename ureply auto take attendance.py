@@ -116,8 +116,8 @@ def check_is_ureply_answer_submitted():
     # After the wait, retrieve the element again and check its text
     currently_submitted_answer = driver.find_element(*span_locator).text.strip()
     
-    print("currently_submitted_answer:", currently_submitted_answer)
-    print("ureply_answer:", ureply_answer)
+    # print("currently_submitted_answer:", currently_submitted_answer)
+    # print("ureply_answer:", ureply_answer)
 
     if (
         question_type == "mc"
@@ -201,9 +201,9 @@ def answer_ureply_question():
             check_is_ureply_answer_submitted()
 
         elif question_type == "typing":
-            print("testing input")
-            sleep(20)
-            
+            # print("testing textbox element with input tag")
+            # sleep(20)
+
             # Input typing answers
             xpath_expression = f'//*[@class="mdl-textfield__input"]' # "*" because the element is not always "textarea", it is "input" sometimes
             textbox_element = None
