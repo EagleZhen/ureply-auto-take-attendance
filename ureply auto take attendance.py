@@ -72,7 +72,7 @@ def print_message(message, write_to_log=True, notify=False, title=""):
 # Retry with increasing time interval up to 30 seconds
 def get_retry_time_interval(status: str = None) -> int:
     global fetching_time_interval
-    
+
     if status == "error":
         fetching_time_interval += 5
     elif status == "default":
@@ -114,10 +114,15 @@ def check_is_ureply_answer_submitted():
     )
 
     # After the wait, retrieve the element again and check its text
-    result = driver.find_element(*span_locator)
-    current_value = result.text.strip()
+    currently_submitted_answer = driver.find_element(*span_locator).text.strip()
+    
+    print("currently_submitted_answer:", currently_submitted_answer)
+    print("ureply_answer:", ureply_answer)
 
-    if ureply_answer.lower() in current_value.lower():
+    if (
+        question_type == "mc"
+        and ureply_answer.lower() in currently_submitted_answer.lower()
+    ) or (question_type == "typing" and ureply_answer == currently_submitted_answer):
         print_message(f'Answered uReply question with answer "{ureply_answer}"')
     else:
         raise Exception(
@@ -139,6 +144,7 @@ def check_afk_and_respond(textbox_element):
     while (datetime.now() - start_time).seconds < afk_time_interval:
         # Received new ureply answers
         if received_new_answer_event.is_set():
+            is_afk = False
             print_message("Received a new uReply. Stopping AFK checking...")
             break
 
@@ -160,7 +166,9 @@ def check_afk_and_respond(textbox_element):
 
     # Submit the answer if AFK is detected OR received a new uReply
     if (is_afk is True) or (received_new_answer_event.is_set()):
-        print_message(f"{'AFK detected. ' if is_afk is True else ''}Answering ureply question...")
+        print_message(
+            f"{'AFK detected. ' if is_afk is True else 'Received a new uReply. '}Answering ureply question..."
+        )
 
         xpath_expression = (
             f'//button[@class="text_btn mdl-button mdl-js-button mdl-button--raised "]'
@@ -194,7 +202,8 @@ def answer_ureply_question():
 
         elif question_type == "typing":
             # Input typing answers
-            xpath_expression = f'//textarea[@class="mdl-textfield__input"]'
+            xpath_expression = f'//*[@class="mdl-textfield__input"]' # "*" because the element is not always "textarea", it is "input" sometimes
+            textbox_element = None
             try:
                 textbox_element = WebDriverWait(driver, 10).until(
                     EC.visibility_of_element_located((By.XPATH, xpath_expression))
@@ -203,12 +212,12 @@ def answer_ureply_question():
                 raise Exception(
                     "Timeout waiting for the textbox to be ready in the typing question"
                 )
-            driver.execute_script(
+            driver.execute_script( # to support unicode characters, such as emoji, avoid the error "ChromeDriver only supports characters in the BMP"
                 f"arguments[0].value = '{ureply_answer}';", textbox_element
             )
             debug("textbox - xpath expression:", xpath_expression)
 
-            # Check if the user is AFK and respond if necessary
+            # Check if the user is AFK and submit the answer only if necessary
             received_new_answer_event.clear()  # Set the internal flag to False
             afk_checking_thread = threading.Thread(
                 target=check_afk_and_respond, args=(textbox_element,)
@@ -219,21 +228,21 @@ def answer_ureply_question():
         raise e  # Raise exception to retry in the main loop
 
 
-take_attendance_now = input("\nDo you want to take attendance now? (y/[n]): ")
+take_attendance_now = input("\nDo you want to take attendance now? (y / [n]): ")
 with open("./info/last_retrieved_time.json", "w") as f:
     if (
         take_attendance_now == "n"
         or take_attendance_now == "N"
         or take_attendance_now == ""
     ):
-        # The script "ureply auto take attendance" will take attendance when a newer ureply is published later
+        # Take attendance when later a newer ureply is published
         json.dump(
             {"Last Retrieved Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
             f,
             indent=4,
         )
     else:
-        # The script "ureply auto take attendance" will take attendance immediately
+        # Take attendance immediately
         json.dump({"Last Retrieved Time": ""}, f, indent=4)
 
 while True:
@@ -251,7 +260,7 @@ while True:
                 try:
                     received_new_answer_event.set()  # Set the internal flag to True to stop AFK checking immediately
                     if afk_checking_thread is not None:
-                        afk_checking_thread.join() # Wait for the thread to finish answering the previous question
+                        afk_checking_thread.join()  # Wait for the thread to finish answering the previous question
 
                     print_divider()
 
@@ -274,7 +283,7 @@ while True:
                             }
                             json.dump(data, f, indent=4)
 
-                        print_message( # for logging
+                        print_message(  # for logging
                             f"Received a new {question_type} uReply - {session_id}"
                         )
 
@@ -283,29 +292,30 @@ while True:
                             f"An error occurred while fetching ureply info: {response.text}"
                         )
 
-                    
-                    if (session_id.startswith("L")): # only perform actions if the session requires login (i.e. attendance taking)
+                    if session_id.startswith(
+                        "L"
+                    ):  # only perform actions if the session requires login (i.e. attendance taking)
                         if question_type == "typing":
                             message = "Remember to type your own answers!"
                         elif question_type == "mc":
                             message = "Note that the answer may not be always correct."
 
-                        print_message( # for desktop notification
+                        print_message(  # for desktop notification
                             message,
                             notify=True,
                             title=f"New {question_type} uReply - {session_id}",
                         )
-                        
+
                         # Joining uReply with the specified session ID
                         driver = webdriver.Chrome()
                         driver.set_page_load_timeout(
                             10
                         )  # Prevent infinite page loading due to network lost
-                        
-                        driver.get( # This url always require login
+
+                        driver.get(  # This url always require login
                             f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}"
                         )
-                        
+
                         # CUHK login page
                         try:
                             WebDriverWait(driver, 10).until(
@@ -338,10 +348,14 @@ while True:
                                 print_message("An uncommon alert was present")
                                 raise e
                         except Exception as e:
-                            print_message("An error occurred while joining ureply session")
+                            print_message(
+                                "An error occurred while joining ureply session"
+                            )
                             raise e
                     else:
-                        print_message("This session does not require login. Skipping...")
+                        print_message(
+                            "This session does not require login. Skipping..."
+                        )
 
                     # Update last retrieved time
                     with open("./info/last_retrieved_time.json", "w") as f:
