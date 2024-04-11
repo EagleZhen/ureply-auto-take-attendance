@@ -201,6 +201,9 @@ def answer_ureply_question():
             check_is_ureply_answer_submitted()
 
         elif question_type == "typing":
+            print("testing input")
+            sleep(20)
+            
             # Input typing answers
             xpath_expression = f'//*[@class="mdl-textfield__input"]' # "*" because the element is not always "textarea", it is "input" sometimes
             textbox_element = None
@@ -212,6 +215,10 @@ def answer_ureply_question():
                 raise Exception(
                     "Timeout waiting for the textbox to be ready in the typing question"
                 )
+            
+            if textbox_element.tag_name == "input" and textbox_element.get_attribute("type") == "number" and not ureply_answer.isnumeric():
+                raise Exception("The textbox only accepts numeric value. You may need another valid answer.")
+
             driver.execute_script( # to support unicode characters, such as emoji, avoid the error "ChromeDriver only supports characters in the BMP"
                 f"arguments[0].value = '{ureply_answer}';", textbox_element
             )
@@ -337,7 +344,6 @@ while True:
                                 )
                             )
                             print_message(f'Joined ureply session "{session_id}"')
-                            answer_ureply_question()
 
                         # Invalid session number / session ended
                         except UnexpectedAlertPresentException as e:
@@ -352,6 +358,8 @@ while True:
                                 "An error occurred while joining ureply session"
                             )
                             raise e
+                        
+                        answer_ureply_question()
                     else:
                         print_message(
                             "This session does not require login. Skipping..."
@@ -390,9 +398,8 @@ while True:
         )
     except Exception as e:
         print_message(f"[!] Error class name: {e.__class__.__name__}")
-        print_message(f"\n\n{e}\n")
         print_message(
-            message=f'Retry in {get_retry_time_interval("error")} seconds...',
+            message=f'Retry in {get_retry_time_interval("error")} seconds...\n{"-"*10}\n{e}', # show error message in the notification
             notify=True,
             title=f"{e.__class__.__name__}",
         )
