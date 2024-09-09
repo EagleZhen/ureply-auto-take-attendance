@@ -115,7 +115,7 @@ def check_is_ureply_answer_submitted():
 
     # After the wait, retrieve the element again and check its text
     currently_submitted_answer = driver.find_element(*span_locator).text.strip()
-    
+
     # print("currently_submitted_answer:", currently_submitted_answer)
     # print("ureply_answer:", ureply_answer)
 
@@ -205,7 +205,7 @@ def answer_ureply_question():
             # sleep(20)
 
             # Input typing answers
-            xpath_expression = f'//*[@class="mdl-textfield__input"]' # "*" because the element is not always "textarea", it is "input" sometimes
+            xpath_expression = f'//*[@class="mdl-textfield__input"]'  # "*" because the element is not always "textarea", it is "input" sometimes
             textbox_element = None
             try:
                 textbox_element = WebDriverWait(driver, 10).until(
@@ -215,11 +215,17 @@ def answer_ureply_question():
                 raise Exception(
                     "Timeout waiting for the textbox to be ready in the typing question"
                 )
-            
-            if textbox_element.tag_name == "input" and textbox_element.get_attribute("type") == "number" and not ureply_answer.isnumeric():
-                raise Exception("The textbox only accepts numeric value. You may need another valid answer.")
 
-            driver.execute_script( # to support unicode characters, such as emoji, avoid the error "ChromeDriver only supports characters in the BMP"
+            if (
+                textbox_element.tag_name == "input"
+                and textbox_element.get_attribute("type") == "number"
+                and not ureply_answer.isnumeric()
+            ):
+                raise Exception(
+                    "The textbox only accepts numeric value. You may need another valid answer."
+                )
+
+            driver.execute_script(  # to support unicode characters, such as emoji, avoid the error "ChromeDriver only supports characters in the BMP"
                 f"arguments[0].value = '{ureply_answer}';", textbox_element
             )
             debug("textbox - xpath expression:", xpath_expression)
@@ -299,9 +305,8 @@ while True:
                             f"An error occurred while fetching ureply info: {response.text}"
                         )
 
-                    if session_id.startswith(
-                        "L"
-                    ):  # only perform actions if the session requires login (i.e. attendance taking)
+                    # only perform actions if the session requires login (i.e. attendance taking)
+                    if session_id.startswith("L"):
                         if question_type == "typing":
                             message = "Remember to type your own answers!"
                         elif question_type == "mc":
@@ -314,6 +319,7 @@ while True:
                         )
 
                         # Joining uReply with the specified session ID
+                        # TODO: navigate to the uReply page directly without opening a new browser to preserve the login status
                         driver = webdriver.Chrome()
                         driver.set_page_load_timeout(
                             10
@@ -358,7 +364,7 @@ while True:
                                 "An error occurred while joining ureply session"
                             )
                             raise e
-                        
+
                         answer_ureply_question()
                     else:
                         print_message(
@@ -399,7 +405,7 @@ while True:
     except Exception as e:
         print_message(f"[!] Error class name: {e.__class__.__name__}")
         print_message(
-            message=f'Retry in {get_retry_time_interval("error")} seconds...\n{"-"*10}\n{e}', # show error message in the notification
+            message=f'Retry in {get_retry_time_interval("error")} seconds...\n{"-"*10}\n{e}',  # show error message in the notification
             notify=True,
             title=f"{e.__class__.__name__}",
         )
