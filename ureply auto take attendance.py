@@ -243,11 +243,7 @@ def answer_ureply_question():
 
 take_attendance_now = input("\nDo you want to take attendance now? (y / [n]): ")
 with open("./info/last_retrieved_time.json", "w") as f:
-    if (
-        take_attendance_now == "n"
-        or take_attendance_now == "N"
-        or take_attendance_now == ""
-    ):
+    if take_attendance_now.lower() != "y":
         # Take attendance when later a newer ureply is published
         json.dump(
             {"Last Retrieved Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
@@ -332,7 +328,7 @@ while True:
                         # CUHK login page
                         try:
                             WebDriverWait(driver, 10).until(
-                                # ensure the URL contains the specified string, i.e. it is on the CUHK login page
+                                # Ensure the URL contains the specified string, i.e. it is on the CUHK login page
                                 EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
                             )
                             print_message("Redirected to CUHK login page")
@@ -344,7 +340,7 @@ while True:
                         # uReply page
                         try:
                             WebDriverWait(driver, 10).until(
-                                # ensure the URL is exactly the specified URL, i.e. it is on the uReply page
+                                # Ensure the URL is exactly the specified URL, i.e. it is on the uReply page
                                 EC.url_to_be(
                                     "https://server4.ureply.mobi/student/cads/joinsession.php"
                                 )
@@ -392,9 +388,9 @@ while True:
                 f"[!] An error occurred while retrieving last updated time: {response.text}"
             )
     except (
-        requests.ConnectionError,
-        TimeoutException,
-    ) as e:  # Network error from firebase request or selenium timeout
+        requests.ConnectionError,  # Network error from firebase request
+        TimeoutException,  # Timeout error from selenium
+    ) as e:
         print_message(f"[!] Error class name: {e.__class__.__name__}")
         print_message(f"\n\n{e}\n")
         print_message(
