@@ -451,7 +451,7 @@ if __name__ == "__main__":
                             EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
                         )
                         print_message("Redirected to CUHK login page")
-                        input_cuhk_credential()  # input CUHK credential
+                        input_cuhk_credential(driver, email, onepass_password)
                     except Exception as e:
                         print_message("An error occurred on CUHK login page")
                         raise e
