@@ -1,5 +1,6 @@
 import threading
 from selenium import webdriver
+from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -44,6 +45,14 @@ def print_message(message, write_to_log=True, notify=False, title=""):
 
     if notify is True:
         notification.notify(title=title, message=message, timeout=5)
+
+
+def setup_selenium() -> WebDriver:
+    driver = webdriver.Chrome()
+    driver.set_page_load_timeout(
+        10
+    )  # Prevent infinite page loading due to network lost
+    return driver
 
 
 # Retry with increasing time interval up to 30 seconds
@@ -218,29 +227,56 @@ def answer_ureply_question():
         raise e  # Raise exception to retry in the main loop
 
 
-if __name__ == "__main__":
-    received_new_answer_event = threading.Event()
-    afk_checking_thread = None
-
-    # Initialize CUHK credential from local file
+def initialize_credential() -> tuple[str, str]:
+    """
+    Initialize CUHK credential from `credential.json` file
+    """
     with open("./info/credential.json") as f:
         info = json.load(f)
         email = info["Login ID"]
         onepass_password = info["OnePass Password"]
 
-    # Initialize ureply info from local file (may be outdated)
+    return email, onepass_password
+
+
+def initialize_ureply_info() -> tuple[str, str, str]:
+    """
+    Initialize ureply info from `ureply_retrieve.json` file
+    """
     with open("./info/ureply_retrieve.json") as f:
         info = json.load(f)
         session_id = info["Session ID"]
         ureply_answer = info["Ureply Answer"]
         question_type = info["Question Type"]
 
-    # Initialize database URL from local file
+    return session_id, ureply_answer, question_type
+
+
+def initialize_general_info() -> tuple[str, int, int]:
+    """
+    Initialize database url, afk time interval, and fetching time interval from `info.json` file
+    """
     with open("./info/info.json") as f:
         info = json.load(f)
         database_url = info["Database URL"]
         afk_time_interval = info["AFK Time Interval"]
         fetching_time_interval = info["Fetching Time Interval"]
+
+    return database_url, afk_time_interval, fetching_time_interval
+
+
+def initialize_threads() -> tuple[threading.Event, threading.Thread]:
+    return threading.Event(), None
+
+
+if __name__ == "__main__":
+    email, onepass_password = initialize_credential()
+    session_id, ureply_answer, question_type = initialize_ureply_info()
+    database_url, afk_time_interval, fetching_time_interval = initialize_general_info()
+
+    received_new_answer_event, afk_checking_thread = initialize_threads()
+
+    driver = setup_selenium()
 
     take_attendance_now = input("\nDo you want to take attendance now? (y / [n]): ")
     with open("./info/last_retrieved_time.json", "w") as f:
@@ -318,12 +354,6 @@ if __name__ == "__main__":
                             )
 
                             # Joining uReply with the specified session ID
-                            # TODO: navigate to the uReply page directly without opening a new browser to preserve the login status
-                            driver = webdriver.Chrome()
-                            driver.set_page_load_timeout(
-                                10
-                            )  # Prevent infinite page loading due to network lost
-
                             driver.get(  # This url always require login
                                 f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}"
                             )
