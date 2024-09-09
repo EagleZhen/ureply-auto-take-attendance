@@ -67,9 +67,7 @@ def get_retry_time_interval(status: str = None) -> int:
     return min(30, fetching_time_interval)
 
 
-def login_cuhk():
-    global email, onepass_password
-
+def input_cuhk_credential(driver: WebDriver, email: str, password: str):
     # Ensure the input area is clickable before sending keys
     try:
         login_id_input = WebDriverWait(driver, 10).until(
@@ -84,7 +82,7 @@ def login_cuhk():
         )
 
     login_id_input.send_keys(email)
-    password_input.send_keys(onepass_password)
+    password_input.send_keys(password)
 
     password_input.send_keys(Keys.RETURN)
 
@@ -269,6 +267,75 @@ def initialize_threads() -> tuple[threading.Event, threading.Thread]:
     return threading.Event(), None
 
 
+def login_cusis(driver: WebDriver, email: str, password: str) -> None:
+    print_message("Logging in CUSIS to establish the session...")
+    try:
+        driver.get("https://cusis.cuhk.edu.hk/")
+        WebDriverWait(driver, 10).until(
+            EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
+        )
+        input_cuhk_credential(driver, email, password)
+
+        WebDriverWait(driver, 10).until(
+            EC.any_of(
+                EC.url_contains("https://api-08dc11c9.duosecurity.com"),
+                EC.url_contains("https://cusis.cuhk.edu.hk/"),
+            )
+        )
+
+        if driver.current_url.find("duosecurity.com") != -1:
+            while (
+                handle_duo_2fa(driver) is False
+            ):  # Keep pushing DUO until it is approved
+                pass
+
+        print_message("Logged in CUSIS successfully")
+    except:
+        raise Exception("An error occurred while logging in CUSIS")
+
+
+def handle_duo_2fa(driver: WebDriver) -> bool:
+    print_message("Waiting for Duo 2FA...")
+    try:
+        WebDriverWait(driver, 70).until(  # DUO Push times out after 60 seconds
+            EC.any_of(
+                # Condition 1: DUO Push times out
+                EC.element_to_be_clickable(
+                    (
+                        By.CSS_SELECTOR,
+                        ".button--primary.button--xlarge.try-again-button",
+                    )
+                ),
+                # Condition 2: DUO Push approved, but prompted to trust the browser
+                EC.element_to_be_clickable((By.ID, "trust-browser-button")),
+                # Condition 3: DUO Push approved and redirected to CUSIS
+                EC.url_contains("https://cusis.cuhk.edu.hk/"),
+            )
+        )
+
+        if driver.current_url.startswith("https://cusis.cuhk.edu.hk/"):
+            print_message("Duo Push approved, redirected to CUSIS")
+            return True
+
+        elif EC.element_to_be_clickable((By.ID, "trust-browser-button"))(driver):
+            print_message("Duo Push approved, prompted to trust the browser")
+            trust_browser_button = driver.find_element(By.ID, "trust-browser-button")
+            trust_browser_button.click()
+            return True
+
+        else:
+            print_message("Duo Push timed out. Initiating a new push...")
+            try_again_button = driver.find_element(
+                By.CSS_SELECTOR, ".button--primary.button--xlarge.try-again-button"
+            )
+            try_again_button.click()
+            return False
+    except Exception as e:
+        raise e
+    except:
+        raise Exception("An error occurred while handling Duo 2FA")
+
+
 if __name__ == "__main__":
     email, onepass_password = initialize_credential()
     session_id, ureply_answer, question_type = initialize_ureply_info()
@@ -277,6 +344,7 @@ if __name__ == "__main__":
     received_new_answer_event, afk_checking_thread = initialize_threads()
 
     driver = setup_selenium()
+    login_cusis(driver, email, onepass_password)
 
     take_attendance_now = input("\nDo you want to take attendance now? (y / [n]): ")
     with open("./info/last_retrieved_time.json", "w") as f:
@@ -329,7 +397,7 @@ if __name__ == "__main__":
                                 }
                                 json.dump(data, f, indent=4)
 
-                            print_message(  # for logging
+                            print_message(
                                 f"Received a new {question_type} uReply - {session_id}"
                             )
 
@@ -338,14 +406,12 @@ if __name__ == "__main__":
                                 f"An error occurred while fetching ureply info: {response.text}"
                             )
 
-                        # only perform actions if the session requires login (i.e. attendance taking)
+                        # Only perform actions if the session requires login (i.e. attendance taking)
                         if session_id.startswith("L"):
                             if question_type == "typing":
                                 message = "Remember to type your own answers!"
                             elif question_type == "mc":
-                                message = (
-                                    "Note that the answer may not be always correct."
-                                )
+                                message = "Note that the multiple choice answer may not be always correct."
 
                             print_message(  # for desktop notification
                                 message,
@@ -365,7 +431,7 @@ if __name__ == "__main__":
                                     EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
                                 )
                                 print_message("Redirected to CUHK login page")
-                                login_cuhk()  # input CUHK credential
+                                input_cuhk_credential()  # input CUHK credential
                             except Exception as e:
                                 print_message("An error occurred on CUHK login page")
                                 raise e
