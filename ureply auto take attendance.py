@@ -55,11 +55,11 @@ def setup_selenium() -> WebDriver:
     return driver
 
 
-def initialize_credential() -> tuple[str, str]:
+def initialize_credential(file_directory: str) -> tuple[str, str]:
     """
-    Initialize CUHK credential from `credential.json` file
+    Initialize CUHK credential from file
     """
-    with open("./info/credential.json") as f:
+    with open(file_directory) as f:
         info = json.load(f)
         email = info["Login ID"]
         onepass_password = info["OnePass Password"]
@@ -67,11 +67,11 @@ def initialize_credential() -> tuple[str, str]:
     return email, onepass_password
 
 
-def initialize_ureply_info() -> tuple[str, str, str]:
+def initialize_ureply_info(file_directory: str) -> tuple[str, str, str]:
     """
-    Initialize ureply info from `ureply_retrieve.json` file
+    Initialize ureply info from file
     """
-    with open("./info/ureply_retrieve.json") as f:
+    with open(file_directory) as f:
         info = json.load(f)
         session_id = info["Session ID"]
         ureply_answer = info["Ureply Answer"]
@@ -80,11 +80,11 @@ def initialize_ureply_info() -> tuple[str, str, str]:
     return session_id, ureply_answer, question_type
 
 
-def initialize_general_info() -> tuple[str, int, int]:
+def initialize_general_info(file_directory: str) -> tuple[str, int, int]:
     """
-    Initialize database url, afk time interval, and fetching time interval from `info.json` file
+    Initialize database url, afk time interval, and fetching time interval from file
     """
-    with open("./info/info.json") as f:
+    with open(file_directory) as f:
         info = json.load(f)
         database_url = info["Database URL"]
         afk_time_interval = info["AFK Time Interval"]
@@ -93,7 +93,7 @@ def initialize_general_info() -> tuple[str, int, int]:
     return database_url, afk_time_interval, fetching_time_interval
 
 
-def initialize_last_retrieved_time() -> str:
+def initialize_last_retrieved_time(take_attendance_now: str) -> str:
     """
     Initialize last retrieved time based on user input.
 
@@ -101,7 +101,6 @@ def initialize_last_retrieved_time() -> str:
 
     If the user does not want to take attendance now, return the current datetime. No uReply will be earlier than this time, so only newer uReply will be handled.
     """
-    take_attendance_now = input("\nDo you want to take attendance now? (y / [n]): ")
     if take_attendance_now.lower() != "y":
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     else:
@@ -352,10 +351,16 @@ def login_cusis(driver: WebDriver, email: str, password: str) -> None:
 
 
 if __name__ == "__main__":
-    email, onepass_password = initialize_credential()
-    session_id, ureply_answer, question_type = initialize_ureply_info()
-    database_url, afk_time_interval, fetching_time_interval = initialize_general_info()
-    last_retrieved_time = initialize_last_retrieved_time()
+    email, onepass_password = initialize_credential("./info/credential.json")
+    session_id, ureply_answer, question_type = initialize_ureply_info(
+        "./info/ureply_retrieve.json"
+    )
+    database_url, afk_time_interval, fetching_time_interval = initialize_general_info(
+        "./info/info.json"
+    )
+    last_retrieved_time = initialize_last_retrieved_time(
+        input("\nDo you want to take attendance now? (y / [n]): ")
+    )
 
     received_new_answer_event, afk_checking_thread = initialize_threads()
 
