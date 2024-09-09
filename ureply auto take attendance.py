@@ -17,29 +17,6 @@ import requests
 import urllib.parse
 from random import randint
 
-received_new_answer_event = threading.Event()
-afk_checking_thread = None
-
-# Initialize CUHK credential from local file
-with open("./info/credential.json") as f:
-    info = json.load(f)
-    email = info["Login ID"]
-    onepass_password = info["OnePass Password"]
-
-# Initialize ureply info from local file (may be outdated)
-with open("./info/ureply_retrieve.json") as f:
-    info = json.load(f)
-    session_id = info["Session ID"]
-    ureply_answer = info["Ureply Answer"]
-    question_type = info["Question Type"]
-
-# Initialize database URL from local file
-with open("./info/info.json") as f:
-    info = json.load(f)
-    database_url = info["Database URL"]
-    afk_time_interval = info["AFK Time Interval"]
-    fetching_time_interval = info["Fetching Time Interval"]
-
 
 def print_divider():
     print("\n========================================\n")
@@ -241,169 +218,197 @@ def answer_ureply_question():
         raise e  # Raise exception to retry in the main loop
 
 
-take_attendance_now = input("\nDo you want to take attendance now? (y / [n]): ")
-with open("./info/last_retrieved_time.json", "w") as f:
-    if take_attendance_now.lower() != "y":
-        # Take attendance when later a newer ureply is published
-        json.dump(
-            {"Last Retrieved Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
-            f,
-            indent=4,
-        )
-    else:
-        # Take attendance immediately
-        json.dump({"Last Retrieved Time": ""}, f, indent=4)
+if __name__ == "__main__":
+    received_new_answer_event = threading.Event()
+    afk_checking_thread = None
 
-while True:
-    try:
-        response = requests.get(f"{database_url}/Last Updated Time.json")
-        if response.status_code == 200:
-            last_updated_time = response.json()["Last Updated Time"]
+    # Initialize CUHK credential from local file
+    with open("./info/credential.json") as f:
+        info = json.load(f)
+        email = info["Login ID"]
+        onepass_password = info["OnePass Password"]
 
-            # Get the last retrieved time from the local file
-            with open("./info/last_retrieved_time.json") as f:
-                last_retrieved_time = json.load(f)["Last Retrieved Time"]
+    # Initialize ureply info from local file (may be outdated)
+    with open("./info/ureply_retrieve.json") as f:
+        info = json.load(f)
+        session_id = info["Session ID"]
+        ureply_answer = info["Ureply Answer"]
+        question_type = info["Question Type"]
 
-            # Handle new ureplies
-            if last_updated_time > last_retrieved_time:
-                try:
-                    received_new_answer_event.set()  # Set the internal flag to True to stop AFK checking immediately
-                    if afk_checking_thread is not None:
-                        afk_checking_thread.join()  # Wait for the thread to finish answering the previous question
+    # Initialize database URL from local file
+    with open("./info/info.json") as f:
+        info = json.load(f)
+        database_url = info["Database URL"]
+        afk_time_interval = info["AFK Time Interval"]
+        fetching_time_interval = info["Fetching Time Interval"]
 
-                    print_divider()
+    take_attendance_now = input("\nDo you want to take attendance now? (y / [n]): ")
+    with open("./info/last_retrieved_time.json", "w") as f:
+        if take_attendance_now.lower() != "y":
+            # Take attendance when later a newer ureply is published
+            json.dump(
+                {"Last Retrieved Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
+                f,
+                indent=4,
+            )
+        else:
+            # Take attendance immediately
+            json.dump({"Last Retrieved Time": ""}, f, indent=4)
 
-                    # Get ureply info from database
-                    response = requests.get(
-                        f"{database_url}/{urllib.parse.quote(last_updated_time)}.json"
-                    )
-                    if response.status_code == 200:
-                        info = response.json()
-                        session_id = info["Session ID"]
-                        ureply_answer = info["Ureply Answer"]
-                        question_type = info["Question Type"]
+    while True:
+        try:
+            response = requests.get(f"{database_url}/Last Updated Time.json")
+            if response.status_code == 200:
+                last_updated_time = response.json()["Last Updated Time"]
 
-                        # Update ureply info in local file
-                        with open("./info/ureply_retrieve.json", "w") as f:
-                            data = {
-                                "Session ID": session_id,
-                                "Ureply Answer": ureply_answer,
-                                "Question Type": question_type,
-                            }
+                # Get the last retrieved time from the local file
+                with open("./info/last_retrieved_time.json") as f:
+                    last_retrieved_time = json.load(f)["Last Retrieved Time"]
+
+                # Handle new ureplies
+                if last_updated_time > last_retrieved_time:
+                    try:
+                        received_new_answer_event.set()  # Set the internal flag to True to stop AFK checking immediately
+                        if afk_checking_thread is not None:
+                            afk_checking_thread.join()  # Wait for the thread to finish answering the previous question
+
+                        print_divider()
+
+                        # Get ureply info from database
+                        response = requests.get(
+                            f"{database_url}/{urllib.parse.quote(last_updated_time)}.json"
+                        )
+                        if response.status_code == 200:
+                            info = response.json()
+                            session_id = info["Session ID"]
+                            ureply_answer = info["Ureply Answer"]
+                            question_type = info["Question Type"]
+
+                            # Update ureply info in local file
+                            with open("./info/ureply_retrieve.json", "w") as f:
+                                data = {
+                                    "Session ID": session_id,
+                                    "Ureply Answer": ureply_answer,
+                                    "Question Type": question_type,
+                                }
+                                json.dump(data, f, indent=4)
+
+                            print_message(  # for logging
+                                f"Received a new {question_type} uReply - {session_id}"
+                            )
+
+                        else:
+                            raise Exception(
+                                f"An error occurred while fetching ureply info: {response.text}"
+                            )
+
+                        # only perform actions if the session requires login (i.e. attendance taking)
+                        if session_id.startswith("L"):
+                            if question_type == "typing":
+                                message = "Remember to type your own answers!"
+                            elif question_type == "mc":
+                                message = (
+                                    "Note that the answer may not be always correct."
+                                )
+
+                            print_message(  # for desktop notification
+                                message,
+                                notify=True,
+                                title=f"New {question_type} uReply - {session_id}",
+                            )
+
+                            # Joining uReply with the specified session ID
+                            # TODO: navigate to the uReply page directly without opening a new browser to preserve the login status
+                            driver = webdriver.Chrome()
+                            driver.set_page_load_timeout(
+                                10
+                            )  # Prevent infinite page loading due to network lost
+
+                            driver.get(  # This url always require login
+                                f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}"
+                            )
+
+                            # CUHK login page
+                            try:
+                                WebDriverWait(driver, 10).until(
+                                    # Ensure the URL contains the specified string, i.e. it is on the CUHK login page
+                                    EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
+                                )
+                                print_message("Redirected to CUHK login page")
+                                login_cuhk()  # input CUHK credential
+                            except Exception as e:
+                                print_message("An error occurred on CUHK login page")
+                                raise e
+
+                            # uReply page
+                            try:
+                                WebDriverWait(driver, 10).until(
+                                    # Ensure the URL is exactly the specified URL, i.e. it is on the uReply page
+                                    EC.url_to_be(
+                                        "https://server4.ureply.mobi/student/cads/joinsession.php"
+                                    )
+                                )
+                                print_message(f'Joined ureply session "{session_id}"')
+
+                            # Invalid session number / session ended
+                            except UnexpectedAlertPresentException as e:
+                                print_message(
+                                    f"[!] {e.alert_text} - The session may have ended."
+                                )
+                                if e.alert_text != "Invalid session number":
+                                    print_message("An uncommon alert was present")
+                                    raise e
+                            except Exception as e:
+                                print_message(
+                                    "An error occurred while joining ureply session"
+                                )
+                                raise e
+
+                            answer_ureply_question()
+                        else:
+                            print_message(
+                                "This session does not require login. Skipping..."
+                            )
+
+                        # Update last retrieved time
+                        with open("./info/last_retrieved_time.json", "w") as f:
+                            data = {"Last Retrieved Time": last_updated_time}
                             json.dump(data, f, indent=4)
 
-                        print_message(  # for logging
-                            f"Received a new {question_type} uReply - {session_id}"
-                        )
+                        print_divider()
 
-                    else:
-                        raise Exception(
-                            f"An error occurred while fetching ureply info: {response.text}"
-                        )
+                    except Exception as e:
+                        print_message("An error occurred while handling the new uReply")
+                        raise e
 
-                    # only perform actions if the session requires login (i.e. attendance taking)
-                    if session_id.startswith("L"):
-                        if question_type == "typing":
-                            message = "Remember to type your own answers!"
-                        elif question_type == "mc":
-                            message = "Note that the answer may not be always correct."
-
-                        print_message(  # for desktop notification
-                            message,
-                            notify=True,
-                            title=f"New {question_type} uReply - {session_id}",
-                        )
-
-                        # Joining uReply with the specified session ID
-                        # TODO: navigate to the uReply page directly without opening a new browser to preserve the login status
-                        driver = webdriver.Chrome()
-                        driver.set_page_load_timeout(
-                            10
-                        )  # Prevent infinite page loading due to network lost
-
-                        driver.get(  # This url always require login
-                            f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}"
-                        )
-
-                        # CUHK login page
-                        try:
-                            WebDriverWait(driver, 10).until(
-                                # Ensure the URL contains the specified string, i.e. it is on the CUHK login page
-                                EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
-                            )
-                            print_message("Redirected to CUHK login page")
-                            login_cuhk()  # input CUHK credential
-                        except Exception as e:
-                            print_message("An error occurred on CUHK login page")
-                            raise e
-
-                        # uReply page
-                        try:
-                            WebDriverWait(driver, 10).until(
-                                # Ensure the URL is exactly the specified URL, i.e. it is on the uReply page
-                                EC.url_to_be(
-                                    "https://server4.ureply.mobi/student/cads/joinsession.php"
-                                )
-                            )
-                            print_message(f'Joined ureply session "{session_id}"')
-
-                        # Invalid session number / session ended
-                        except UnexpectedAlertPresentException as e:
-                            print_message(
-                                f"[!] {e.alert_text} - The session may have ended."
-                            )
-                            if e.alert_text != "Invalid session number":
-                                print_message("An uncommon alert was present")
-                                raise e
-                        except Exception as e:
-                            print_message(
-                                "An error occurred while joining ureply session"
-                            )
-                            raise e
-
-                        answer_ureply_question()
-                    else:
-                        print_message(
-                            "This session does not require login. Skipping..."
-                        )
-
-                    # Update last retrieved time
-                    with open("./info/last_retrieved_time.json", "w") as f:
-                        data = {"Last Retrieved Time": last_updated_time}
-                        json.dump(data, f, indent=4)
-
-                    print_divider()
-
-                except Exception as e:
-                    print_message("An error occurred while handling the new uReply")
-                    raise e
+                else:
+                    print_message(
+                        f"No new ureply since {last_updated_time}", write_to_log=False
+                    )
 
             else:
-                print_message(
-                    f"No new ureply since {last_updated_time}", write_to_log=False
+                raise Exception(
+                    f"[!] An error occurred while retrieving last updated time: {response.text}"
                 )
-
-        else:
-            raise Exception(
-                f"[!] An error occurred while retrieving last updated time: {response.text}"
+        except (
+            requests.ConnectionError,  # Network error from firebase request
+            TimeoutException,  # Timeout error from selenium
+        ) as e:
+            print_message(f"[!] Error class name: {e.__class__.__name__}")
+            print_message(f"\n\n{e}\n")
+            print_message(
+                f'Your network may be disconnected. Retry in {get_retry_time_interval("error")} seconds...',
+                notify=True,
+                title=f"{e.__class__.__name__}",
             )
-    except (
-        requests.ConnectionError,  # Network error from firebase request
-        TimeoutException,  # Timeout error from selenium
-    ) as e:
-        print_message(f"[!] Error class name: {e.__class__.__name__}")
-        print_message(f"\n\n{e}\n")
-        print_message(
-            f'Your network may be disconnected. Retry in {get_retry_time_interval("error")} seconds...',
-            notify=True,
-            title=f"{e.__class__.__name__}",
-        )
-    except Exception as e:
-        print_message(f"[!] Error class name: {e.__class__.__name__}")
-        print_message(
-            message=f'Retry in {get_retry_time_interval("error")} seconds...\n{"-"*10}\n{e}',  # show error message in the notification
-            notify=True,
-            title=f"{e.__class__.__name__}",
-        )
+        except Exception as e:
+            print_message(f"[!] Error class name: {e.__class__.__name__}")
+            print_message(
+                message=f'Retry in {get_retry_time_interval("error")} seconds...\n{"-"*10}\n{e}',  # show error message in the notification
+                notify=True,
+                title=f"{e.__class__.__name__}",
+            )
 
-    sleep(get_retry_time_interval())  # Retry with increasing interval up to 30 seconds
+        sleep(
+            get_retry_time_interval()
+        )  # Retry with increasing interval up to 30 seconds
