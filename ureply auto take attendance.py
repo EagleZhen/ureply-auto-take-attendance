@@ -55,6 +55,48 @@ def setup_selenium() -> WebDriver:
     return driver
 
 
+def initialize_credential() -> tuple[str, str]:
+    """
+    Initialize CUHK credential from `credential.json` file
+    """
+    with open("./info/credential.json") as f:
+        info = json.load(f)
+        email = info["Login ID"]
+        onepass_password = info["OnePass Password"]
+
+    return email, onepass_password
+
+
+def initialize_ureply_info() -> tuple[str, str, str]:
+    """
+    Initialize ureply info from `ureply_retrieve.json` file
+    """
+    with open("./info/ureply_retrieve.json") as f:
+        info = json.load(f)
+        session_id = info["Session ID"]
+        ureply_answer = info["Ureply Answer"]
+        question_type = info["Question Type"]
+
+    return session_id, ureply_answer, question_type
+
+
+def initialize_general_info() -> tuple[str, int, int]:
+    """
+    Initialize database url, afk time interval, and fetching time interval from `info.json` file
+    """
+    with open("./info/info.json") as f:
+        info = json.load(f)
+        database_url = info["Database URL"]
+        afk_time_interval = info["AFK Time Interval"]
+        fetching_time_interval = info["Fetching Time Interval"]
+
+    return database_url, afk_time_interval, fetching_time_interval
+
+
+def initialize_threads() -> tuple[threading.Event, threading.Thread]:
+    return threading.Event(), None
+
+
 # Retry with increasing time interval up to 30 seconds
 def get_retry_time_interval(status: str = None) -> int:
     global fetching_time_interval
@@ -225,75 +267,6 @@ def answer_ureply_question():
         raise e  # Raise exception to retry in the main loop
 
 
-def initialize_credential() -> tuple[str, str]:
-    """
-    Initialize CUHK credential from `credential.json` file
-    """
-    with open("./info/credential.json") as f:
-        info = json.load(f)
-        email = info["Login ID"]
-        onepass_password = info["OnePass Password"]
-
-    return email, onepass_password
-
-
-def initialize_ureply_info() -> tuple[str, str, str]:
-    """
-    Initialize ureply info from `ureply_retrieve.json` file
-    """
-    with open("./info/ureply_retrieve.json") as f:
-        info = json.load(f)
-        session_id = info["Session ID"]
-        ureply_answer = info["Ureply Answer"]
-        question_type = info["Question Type"]
-
-    return session_id, ureply_answer, question_type
-
-
-def initialize_general_info() -> tuple[str, int, int]:
-    """
-    Initialize database url, afk time interval, and fetching time interval from `info.json` file
-    """
-    with open("./info/info.json") as f:
-        info = json.load(f)
-        database_url = info["Database URL"]
-        afk_time_interval = info["AFK Time Interval"]
-        fetching_time_interval = info["Fetching Time Interval"]
-
-    return database_url, afk_time_interval, fetching_time_interval
-
-
-def initialize_threads() -> tuple[threading.Event, threading.Thread]:
-    return threading.Event(), None
-
-
-def login_cusis(driver: WebDriver, email: str, password: str) -> None:
-    print_message("Logging in CUSIS to establish the session...")
-    try:
-        driver.get("https://cusis.cuhk.edu.hk/")
-        WebDriverWait(driver, 10).until(
-            EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
-        )
-        input_cuhk_credential(driver, email, password)
-
-        WebDriverWait(driver, 10).until(
-            EC.any_of(
-                EC.url_contains("https://api-08dc11c9.duosecurity.com"),
-                EC.url_contains("https://cusis.cuhk.edu.hk/"),
-            )
-        )
-
-        if driver.current_url.find("duosecurity.com") != -1:
-            while (
-                handle_duo_2fa(driver) is False
-            ):  # Keep pushing DUO until it is approved
-                pass
-
-        print_message("Logged in CUSIS successfully")
-    except:
-        raise Exception("An error occurred while logging in CUSIS")
-
-
 def handle_duo_2fa(driver: WebDriver) -> bool:
     print_message("Waiting for Duo 2FA...")
     try:
@@ -334,6 +307,33 @@ def handle_duo_2fa(driver: WebDriver) -> bool:
         raise e
     except:
         raise Exception("An error occurred while handling Duo 2FA")
+
+
+def login_cusis(driver: WebDriver, email: str, password: str) -> None:
+    print_message("Logging in CUSIS to establish the session...")
+    try:
+        driver.get("https://cusis.cuhk.edu.hk/")
+        WebDriverWait(driver, 10).until(
+            EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
+        )
+        input_cuhk_credential(driver, email, password)
+
+        WebDriverWait(driver, 10).until(
+            EC.any_of(
+                EC.url_contains("https://api-08dc11c9.duosecurity.com"),
+                EC.url_contains("https://cusis.cuhk.edu.hk/"),
+            )
+        )
+
+        if driver.current_url.find("duosecurity.com") != -1:
+            while (
+                handle_duo_2fa(driver) is False
+            ):  # Keep pushing DUO until it is approved
+                pass
+
+        print_message("Logged in CUSIS successfully")
+    except:
+        raise Exception("An error occurred while logging in CUSIS")
 
 
 if __name__ == "__main__":
