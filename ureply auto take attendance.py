@@ -93,6 +93,21 @@ def initialize_general_info() -> tuple[str, int, int]:
     return database_url, afk_time_interval, fetching_time_interval
 
 
+def initialize_last_retrieved_time() -> str:
+    """
+    Initialize last retrieved time based on user input.
+
+    If the user wants to take attendance now, return `0001-01-01 00:00:00` (minimum datetime). Any uReply will be later than this time, so it will be handled immediately.
+
+    If the user does not want to take attendance now, return the current datetime. No uReply will be earlier than this time, so only newer uReply will be handled.
+    """
+    take_attendance_now = input("\nDo you want to take attendance now? (y / [n]): ")
+    if take_attendance_now.lower() != "y":
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        return datetime.min.strftime("%Y-%m-%d %H:%M:%S")  # 0001-01-01 00:00:00
+
+
 def initialize_threads() -> tuple[threading.Event, threading.Thread]:
     return threading.Event(), None
 
@@ -340,34 +355,18 @@ if __name__ == "__main__":
     email, onepass_password = initialize_credential()
     session_id, ureply_answer, question_type = initialize_ureply_info()
     database_url, afk_time_interval, fetching_time_interval = initialize_general_info()
+    last_retrieved_time = initialize_last_retrieved_time()
 
     received_new_answer_event, afk_checking_thread = initialize_threads()
 
     driver = setup_selenium()
     login_cusis(driver, email, onepass_password)
 
-    take_attendance_now = input("\nDo you want to take attendance now? (y / [n]): ")
-    with open("./info/last_retrieved_time.json", "w") as f:
-        if take_attendance_now.lower() != "y":
-            # Take attendance when later a newer ureply is published
-            json.dump(
-                {"Last Retrieved Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
-                f,
-                indent=4,
-            )
-        else:
-            # Take attendance immediately
-            json.dump({"Last Retrieved Time": ""}, f, indent=4)
-
     while True:
         try:
             response = requests.get(f"{database_url}/Last Updated Time.json")
             if response.status_code == 200:
                 last_updated_time = response.json()["Last Updated Time"]
-
-                # Get the last retrieved time from the local file
-                with open("./info/last_retrieved_time.json") as f:
-                    last_retrieved_time = json.load(f)["Last Retrieved Time"]
 
                 # Handle new ureplies
                 if last_updated_time > last_retrieved_time:
@@ -378,7 +377,7 @@ if __name__ == "__main__":
 
                         print_divider()
 
-                        # Get ureply info from database
+                        # Get uReply info from database
                         response = requests.get(
                             f"{database_url}/{urllib.parse.quote(last_updated_time)}.json"
                         )
@@ -391,6 +390,7 @@ if __name__ == "__main__":
                             # Update ureply info in local file
                             with open("./info/ureply_retrieve.json", "w") as f:
                                 data = {
+                                    "Received Time": last_updated_time,
                                     "Session ID": session_id,
                                     "Ureply Answer": ureply_answer,
                                     "Question Type": question_type,
@@ -465,11 +465,6 @@ if __name__ == "__main__":
                             print_message(
                                 "This session does not require login. Skipping..."
                             )
-
-                        # Update last retrieved time
-                        with open("./info/last_retrieved_time.json", "w") as f:
-                            data = {"Last Retrieved Time": last_updated_time}
-                            json.dump(data, f, indent=4)
 
                         print_divider()
 
