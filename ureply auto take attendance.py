@@ -470,7 +470,7 @@ if __name__ == "__main__":
 
     while True:
         try:
-            last_updated_time, session_id, ureply_answer, question_type = (
+            last_database_update_time, session_id, ureply_answer, question_type = (
                 get_latest_ureply_from_database(database_url)
             )
 
@@ -478,6 +478,7 @@ if __name__ == "__main__":
             save_ureply_info_to_file(
                 "./info/ureply_retrieve.json",
                 last_updated_time,
+                last_database_update_time,
                 session_id,
                 ureply_answer,
                 question_type,
@@ -485,7 +486,6 @@ if __name__ == "__main__":
 
             if last_updated_time <= last_retrieved_time:
                 print_message(
-                    f"No new ureply since {last_updated_time}", write_to_log=False
                 )
             else:
                 handle_new_ureply(driver, session_id, question_type, ureply_answer)
