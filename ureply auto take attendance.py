@@ -321,26 +321,20 @@ def handle_duo_2fa(driver: WebDriver) -> bool:
     try:
         WebDriverWait(driver, 70).until(  # DUO Push times out after 60 seconds
             EC.any_of(
-                # Condition 1: DUO Push times out
+                # Condition 1: DUO Push approved, but prompted to trust the browser
+                EC.element_to_be_clickable((By.ID, "trust-browser-button")),
+                # Condition 2: DUO Push times out
                 EC.element_to_be_clickable(
                     (
                         By.CSS_SELECTOR,
                         ".button--primary.button--xlarge.try-again-button",
                     )
                 ),
-                # Condition 2: DUO Push approved, but prompted to trust the browser
-                EC.element_to_be_clickable((By.ID, "trust-browser-button")),
-                # Condition 3: DUO Push approved and redirected to CUSIS
-                EC.url_contains("https://cusis.cuhk.edu.hk/"),
             )
         )
 
-        if driver.current_url.startswith("https://cusis.cuhk.edu.hk/"):
-            print_message("Duo Push approved, redirected to CUSIS")
-            return True
-
-        elif EC.element_to_be_clickable((By.ID, "trust-browser-button"))(driver):
-            print_message("Duo Push approved, prompted to trust the browser")
+        if EC.element_to_be_clickable((By.ID, "trust-browser-button"))(driver):
+            print_message("Duo Push approved")
             trust_browser_button = driver.find_element(By.ID, "trust-browser-button")
             trust_browser_button.click()
             return True
