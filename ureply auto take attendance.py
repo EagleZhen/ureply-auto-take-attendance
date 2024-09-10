@@ -98,8 +98,10 @@ def initialize_threads() -> tuple[threading.Event, threading.Thread]:
     return threading.Event(), None
 
 
-# Retry with increasing time interval up to 30 seconds
 def get_retry_time_interval(status: str = None) -> int:
+    """
+    Retry with increasing time interval up to 30 seconds if an error occurs.
+    """
     global fetching_time_interval
 
     if status == "error":
@@ -379,23 +381,107 @@ def login_cusis(driver: WebDriver, email: str, password: str) -> None:
                 pass
 
         print_message("Logged in CUSIS successfully")
-    except:
-        raise Exception("An error occurred while logging in CUSIS")
+    except Exception as e:
+        print_message(f"An error occurred while logging in CUSIS")
+        raise e
+
+
+def send_notification_for_new_ureply(question_type: str) -> None:
+    if question_type == "typing":
+        message = "Remember to type your own answers!"
+    elif question_type == "mc":
+        message = "Note that the multiple choice answer may not be always correct."
+
+    print_message(  # for desktop notification
+        message,
+        notify=True,
+        title=f"New {question_type} uReply - {session_id}",
+    )
+
+
+def handle_new_ureply(session_id: str, ureply_answer: str, question_type: str) -> None:
+    print_message(
+        f"Received a new uReply : {session_id} | {question_type} | {ureply_answer}"
+    )
+
+    try:
+        # Only perform actions if the session requires login (i.e. attendance taking)
+        if not session_id.startswith("L"):
+            print_message("This session does not require login. Skipping...")
+            return
+
+        received_new_answer_event.set()  # Set the internal flag to True to stop AFK checking immediately
+        if afk_checking_thread is not None:
+            afk_checking_thread.join()  # Wait for the thread to finish answering the previous question
+
+        print_divider()
+
+        send_notification_for_new_ureply(question_type)
+
+        # Joining uReply with the specified session ID
+        driver.get(  # This url always require login
+            f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}"
+        )
+
+        # CUHK login page
+        try:
+            WebDriverWait(driver, 10).until(
+                # Ensure the URL contains the specified string, i.e. it is on the CUHK login page
+                EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
+            )
+            print_message("Redirected to CUHK login page")
+            input_cuhk_credential(driver, email, onepass_password)
+        except Exception as e:
+            print_message("An error occurred on CUHK login page")
+            raise e
+
+        # uReply page
+        try:
+            WebDriverWait(driver, 10).until(
+                # Ensure the URL is exactly the specified URL, i.e. it is on the uReply page
+                EC.url_to_be("https://server4.ureply.mobi/student/cads/joinsession.php")
+            )
+            print_message(f'Joined ureply session "{session_id}"')
+
+        # Invalid session number / session ended
+        except UnexpectedAlertPresentException as e:
+            print_message(f"[!] {e.alert_text} - The session may have ended.")
+            if e.alert_text != "Invalid session number":
+                print_message("An uncommon alert was present")
+                raise e
+        except Exception as e:
+            print_message("An error occurred while joining ureply session")
+            raise e
+
+        answer_ureply_question()
+
+        print_divider()
+
+    except Exception as e:
+        print_message("An error occurred while handling the new uReply")
+        raise e
 
 
 if __name__ == "__main__":
-    email, onepass_password = initialize_credential("./info/credential.json")
-    database_url, afk_time_interval, fetching_time_interval = initialize_general_info(
-        "./info/info.json"
-    )
-    last_retrieved_time = initialize_last_retrieved_time(
-        input("\nDo you want to take attendance now? (y / [n]): ")
-    )
+    try:
+        email, onepass_password = initialize_credential("./info/credential.json")
+        database_url, afk_time_interval, fetching_time_interval = (
+            initialize_general_info("./info/info.json")
+        )
+        last_retrieved_time = initialize_last_retrieved_time(
+            input("\nDo you want to take attendance now? (y / [n]): ")
+        )
 
-    received_new_answer_event, afk_checking_thread = initialize_threads()
+        received_new_answer_event, afk_checking_thread = initialize_threads()
 
-    driver = setup_selenium()
-    login_cusis(driver, email, onepass_password)
+        driver = setup_selenium()
+        login_cusis(driver, email, onepass_password)
+    except Exception as e:
+        print_message(
+            f"An error occurred during initialization | {e.__class__.__name__}\n\n{e}"
+        )
+        input("\nPress any key to exit...")
+        exit()
 
     while True:
         try:
@@ -416,81 +502,13 @@ if __name__ == "__main__":
                 print_message(
                     f"No new ureply since {last_updated_time}", write_to_log=False
                 )
-                continue
-
-            # Handle new uReply
-            try:
-                received_new_answer_event.set()  # Set the internal flag to True to stop AFK checking immediately
-                if afk_checking_thread is not None:
-                    afk_checking_thread.join()  # Wait for the thread to finish answering the previous question
-
-                print_divider()
-
-                # Only perform actions if the session requires login (i.e. attendance taking)
-                if session_id.startswith("L"):
-                    if question_type == "typing":
-                        message = "Remember to type your own answers!"
-                    elif question_type == "mc":
-                        message = "Note that the multiple choice answer may not be always correct."
-
-                    print_message(  # for desktop notification
-                        message,
-                        notify=True,
-                        title=f"New {question_type} uReply - {session_id}",
-                    )
-
-                    # Joining uReply with the specified session ID
-                    driver.get(  # This url always require login
-                        f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}"
-                    )
-
-                    # CUHK login page
-                    try:
-                        WebDriverWait(driver, 10).until(
-                            # Ensure the URL contains the specified string, i.e. it is on the CUHK login page
-                            EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
-                        )
-                        print_message("Redirected to CUHK login page")
-                        input_cuhk_credential(driver, email, onepass_password)
-                    except Exception as e:
-                        print_message("An error occurred on CUHK login page")
-                        raise e
-
-                    # uReply page
-                    try:
-                        WebDriverWait(driver, 10).until(
-                            # Ensure the URL is exactly the specified URL, i.e. it is on the uReply page
-                            EC.url_to_be(
-                                "https://server4.ureply.mobi/student/cads/joinsession.php"
-                            )
-                        )
-                        print_message(f'Joined ureply session "{session_id}"')
-
-                    # Invalid session number / session ended
-                    except UnexpectedAlertPresentException as e:
-                        print_message(
-                            f"[!] {e.alert_text} - The session may have ended."
-                        )
-                        if e.alert_text != "Invalid session number":
-                            print_message("An uncommon alert was present")
-                            raise e
-                    except Exception as e:
-                        print_message("An error occurred while joining ureply session")
-                        raise e
-
-                    answer_ureply_question()
-                else:
-                    print_message("This session does not require login. Skipping...")
-
-                print_divider()
-
-            except Exception as e:
-                print_message("An error occurred while handling the new uReply")
-                raise e
+            else:
+                handle_new_ureply(session_id, ureply_answer, question_type)
 
         except (
             requests.ConnectionError,  # Network error from firebase request
             TimeoutException,  # Timeout error from selenium
+            WebDriverException,  # WebDriver error from selenium, e.g. cannot resolve hostname
         ) as e:
             print_message(f"[!] Error class name: {e.__class__.__name__}")
             print_message(f"\n\n{e}\n")
@@ -507,6 +525,4 @@ if __name__ == "__main__":
                 title=f"{e.__class__.__name__}",
             )
 
-        sleep(
-            get_retry_time_interval()
-        )  # Retry with increasing interval up to 30 seconds
+        sleep(get_retry_time_interval("default"))
