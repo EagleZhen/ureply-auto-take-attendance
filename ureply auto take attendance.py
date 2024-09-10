@@ -399,7 +399,9 @@ def send_notification_for_new_ureply(question_type: str) -> None:
     )
 
 
-def handle_new_ureply(session_id: str, ureply_answer: str, question_type: str) -> None:
+def handle_new_ureply(
+    driver: WebDriver, session_id: str, question_type: str, ureply_answer: str
+) -> None:
     print_message(
         f"Received a new uReply : {session_id} | {question_type} | {ureply_answer}"
     )
@@ -418,22 +420,11 @@ def handle_new_ureply(session_id: str, ureply_answer: str, question_type: str) -
 
         send_notification_for_new_ureply(question_type)
 
-        # Joining uReply with the specified session ID
+        # Join uReply with the specified session ID in a new tab
+        driver.switch_to.new_window("tab")
         driver.get(  # This url always require login
             f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}"
         )
-
-        # CUHK login page
-        try:
-            WebDriverWait(driver, 10).until(
-                # Ensure the URL contains the specified string, i.e. it is on the CUHK login page
-                EC.url_contains("https://sts.cuhk.edu.hk/adfs/ls/")
-            )
-            print_message("Redirected to CUHK login page")
-            input_cuhk_credential(driver, email, onepass_password)
-        except Exception as e:
-            print_message("An error occurred on CUHK login page")
-            raise e
 
         # uReply page
         try:
@@ -503,7 +494,7 @@ if __name__ == "__main__":
                     f"No new ureply since {last_updated_time}", write_to_log=False
                 )
             else:
-                handle_new_ureply(session_id, ureply_answer, question_type)
+                handle_new_ureply(driver, session_id, question_type, ureply_answer)
 
         except (
             requests.ConnectionError,  # Network error from firebase request
