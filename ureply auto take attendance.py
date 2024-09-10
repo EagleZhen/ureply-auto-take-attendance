@@ -361,20 +361,12 @@ def login_cusis(driver: WebDriver, email: str, password: str) -> None:
         )
         input_cuhk_credential(driver, email, password)
 
+        while handle_duo_2fa(driver) is False:  # Keep pushing DUO until it is approved
+            pass
+
         WebDriverWait(driver, 10).until(
-            EC.any_of(
-                EC.url_contains("https://api-08dc11c9.duosecurity.com"),
-                EC.url_contains("https://cusis.cuhk.edu.hk/"),
-            )
-        )
-
-        if driver.current_url.find("duosecurity.com") != -1:
-            while (
-                handle_duo_2fa(driver) is False
-            ):  # Keep pushing DUO until it is approved
-                pass
-
-        print_message("Logged in CUSIS successfully")
+            EC.url_contains("https://cusis.cuhk.edu.hk/")
+        )  # Wait for the redirection to CUSIS to ensure the login session has been established properly
     except Exception as e:
         print_message(f"An error occurred while logging in CUSIS")
         raise e
@@ -477,18 +469,20 @@ if __name__ == "__main__":
             # Update ureply info in local file
             save_ureply_info_to_file(
                 "./info/ureply_retrieve.json",
-                last_updated_time,
                 last_database_update_time,
                 session_id,
                 ureply_answer,
                 question_type,
             )
 
-            if last_updated_time <= last_retrieved_time:
+            if last_database_update_time <= last_retrieved_time:
                 print_message(
+                    f"No new ureply since {last_database_update_time}",
+                    write_to_log=False,
                 )
             else:
                 handle_new_ureply(driver, session_id, question_type, ureply_answer)
+                last_retrieved_time = last_database_update_time
 
         except (
             requests.ConnectionError,  # Network error from firebase request
