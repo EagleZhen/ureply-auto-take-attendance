@@ -378,11 +378,33 @@ def send_notification_for_new_ureply(question_type: str) -> None:
     elif question_type == "mc":
         message = "Note that the multiple choice answer may not be always correct."
 
-    print_message(  # for desktop notification
+    print_message(
         message,
         notify=True,
         title=f"New {question_type} uReply - {session_id}",
     )
+
+
+def join_ureply_session(driver: WebDriver, session_id: str) -> bool:
+    try:
+        WebDriverWait(driver, 10).until(
+            # Ensure it is on the uReply page
+            EC.url_to_be("https://server4.ureply.mobi/student/cads/joinsession.php")
+        )
+        print_message(f'Joined uReply session "{session_id}"')
+        return True
+
+    # Invalid session number / session ended
+    except UnexpectedAlertPresentException as e:
+        if e.alert_text != "Invalid session number":
+            print_message("An uncommon alert was present")
+            raise e
+        else:
+            print_message(f"[!] {e.alert_text} - The session may have ended. Skipping...")
+            return False
+    except Exception as e:
+        print_message("An error occurred while joining ureply session")
+        raise e
 
 
 def handle_new_ureply(
@@ -394,7 +416,7 @@ def handle_new_ureply(
 
     try:
         # Only perform actions if the session requires login (i.e. attendance taking)
-        if not session_id.startswith("L"):
+        if session_id.startswith("L") is False:
             print_message("This session does not require login. Skipping...")
             return
 
@@ -413,22 +435,8 @@ def handle_new_ureply(
         )
 
         # uReply page
-        try:
-            WebDriverWait(driver, 10).until(
-                # Ensure the URL is exactly the specified URL, i.e. it is on the uReply page
-                EC.url_to_be("https://server4.ureply.mobi/student/cads/joinsession.php")
-            )
-            print_message(f'Joined ureply session "{session_id}"')
-
-        # Invalid session number / session ended
-        except UnexpectedAlertPresentException as e:
-            print_message(f"[!] {e.alert_text} - The session may have ended.")
-            if e.alert_text != "Invalid session number":
-                print_message("An uncommon alert was present")
-                raise e
-        except Exception as e:
-            print_message("An error occurred while joining ureply session")
-            raise e
+        if join_ureply_session(driver, session_id) is False:
+            return
 
         answer_ureply_question()
 
