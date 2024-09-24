@@ -104,11 +104,11 @@ def get_retry_time_interval(status: str = "default") -> int:
     """
     global fetching_time_interval
     if status == "error":
-        fetching_time_interval += 5
+        fetching_time_interval = min(30, fetching_time_interval + 5)
     elif status == "default":
         fetching_time_interval = initial_fetching_time_interval
 
-    return min(30, fetching_time_interval)
+    return fetching_time_interval
 
 
 def get_latest_ureply_from_database(database_url: str) -> tuple[str, str, str]:
