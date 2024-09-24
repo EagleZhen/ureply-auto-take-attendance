@@ -98,16 +98,15 @@ def initialize_threads() -> tuple[threading.Event, threading.Thread]:
     return threading.Event(), None
 
 
-def get_retry_time_interval(status: str = None) -> int:
+def get_retry_time_interval(status: str = "default") -> int:
     """
     Retry with increasing time interval up to 30 seconds if an error occurs.
     """
     global fetching_time_interval
-
     if status == "error":
         fetching_time_interval += 5
     elif status == "default":
-        fetching_time_interval = 5
+        fetching_time_interval = initial_fetching_time_interval
 
     return min(30, fetching_time_interval)
 
@@ -137,9 +136,9 @@ def get_latest_ureply_from_database(database_url: str) -> tuple[str, str, str]:
             raise Exception(
                 f"[!] An error occurred while retrieving last updated time: {response.text}"
             )
-    except:
-        raise Exception("An error occurred while requesting the database")
-
+    except Exception as e:
+        print_message("An error occurred while requesting the database")
+        raise e
 
 def save_ureply_info_to_file(
     file_directory: str,
@@ -396,11 +395,17 @@ def join_ureply_session(driver: WebDriver, session_id: str) -> bool:
 
     # Invalid session number / session ended
     except UnexpectedAlertPresentException as e:
+        # Close the alert
+        alert = driver.switch_to.alert
+        alert.accept()
+
         if e.alert_text != "Invalid session number":
             print_message("An uncommon alert was present")
             raise e
         else:
-            print_message(f"[!] {e.alert_text} - The session may have ended. Skipping...")
+            print_message(
+                f"[!] {e.alert_text} - The session may have ended. Skipping..."
+            )
             return False
     except Exception as e:
         print_message("An error occurred while joining ureply session")
@@ -450,9 +455,12 @@ def handle_new_ureply(
 if __name__ == "__main__":
     try:
         email, onepass_password = initialize_credential("./info/credential.json")
-        database_url, afk_time_interval, fetching_time_interval = (
+
+        database_url, afk_time_interval, initial_fetching_time_interval = (
             initialize_general_info("./info/info.json")
         )
+        fetching_time_interval = initial_fetching_time_interval
+
         last_retrieved_time = initialize_last_retrieved_time(
             input("\nDo you want to take attendance now? (y / [n]): ")
         )
