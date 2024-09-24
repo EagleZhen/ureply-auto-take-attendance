@@ -319,30 +319,30 @@ def answer_ureply_question():
 def handle_duo_2fa(driver: WebDriver) -> bool:
     print_message("Waiting for Duo 2FA...")
     try:
-        condition_trust_browser = EC.element_to_be_clickable(
+        # Condition 1: DUO Push approved, but prompted to trust the browser
+        condition_trust_browser_button_appear = EC.element_to_be_clickable(
             (By.ID, "trust-browser-button")
         )
+        # Condition 2: DUO Push times out
         condition_try_again_button_appear = EC.element_to_be_clickable(
             (By.CSS_SELECTOR, ".button--primary.button--xlarge.try-again-button")
         )
+        # Condition 3: Duo prompted to update the browser before pushing
         condition_skip_update_browser_button_appear = EC.element_to_be_clickable(
             (By.XPATH, "//button[text()='Skip for now']")
         )
 
         WebDriverWait(driver, 70).until(  # DUO Push times out after 60 seconds
             EC.any_of(
-                # Condition 1: DUO Push approved, but prompted to trust the browser
-                condition_trust_browser,
-                # Condition 2: DUO Push times out
+                condition_trust_browser_button_appear,
                 condition_try_again_button_appear,
-                # Condition 3: Duo prompted to update the browser before pushing
                 condition_skip_update_browser_button_appear,
             )
         )
 
-        if condition_trust_browser(driver):
+        if condition_trust_browser_button_appear(driver):
             print_message("Duo Push approved")
-            trust_browser_button = condition_trust_browser(driver)
+            trust_browser_button = condition_trust_browser_button_appear(driver)
             trust_browser_button.click()
             return True
 
@@ -358,13 +358,16 @@ def handle_duo_2fa(driver: WebDriver) -> bool:
             skip_for_now_button.click()
             return False
     except Exception as e:
+        print_message("An error occurred while handling DUO 2FA")
         raise e
-    except:
-        raise Exception("An error occurred while handling Duo 2FA")
 
 
 def login_cusis(driver: WebDriver, email: str, password: str) -> None:
-    print_message("Logging in CUSIS to establish the session...", notify=True, title="Logging in CUSIS")
+    print_message(
+        "Logging in CUSIS to establish the session...",
+        notify=True,
+        title="Logging in CUSIS",
+    )
     try:
         driver.get("https://cusis.cuhk.edu.hk/")
         WebDriverWait(driver, 10).until(
