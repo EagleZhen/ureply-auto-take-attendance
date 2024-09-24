@@ -140,6 +140,7 @@ def get_latest_ureply_from_database(database_url: str) -> tuple[str, str, str]:
         print_message("An error occurred while requesting the database")
         raise e
 
+
 def save_ureply_info_to_file(
     file_directory: str,
     last_updated_time: str,
@@ -318,32 +319,43 @@ def answer_ureply_question():
 def handle_duo_2fa(driver: WebDriver) -> bool:
     print_message("Waiting for Duo 2FA...")
     try:
+        condition_trust_browser = EC.element_to_be_clickable(
+            (By.ID, "trust-browser-button")
+        )
+        condition_try_again_button_appear = EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, ".button--primary.button--xlarge.try-again-button")
+        )
+        condition_skip_update_browser_button_appear = EC.element_to_be_clickable(
+            (By.XPATH, "//button[text()='Skip for now']")
+        )
+
         WebDriverWait(driver, 70).until(  # DUO Push times out after 60 seconds
             EC.any_of(
                 # Condition 1: DUO Push approved, but prompted to trust the browser
-                EC.element_to_be_clickable((By.ID, "trust-browser-button")),
+                condition_trust_browser,
                 # Condition 2: DUO Push times out
-                EC.element_to_be_clickable(
-                    (
-                        By.CSS_SELECTOR,
-                        ".button--primary.button--xlarge.try-again-button",
-                    )
-                ),
+                condition_try_again_button_appear,
+                # Condition 3: Duo prompted to update the browser before pushing
+                condition_skip_update_browser_button_appear,
             )
         )
 
-        if EC.element_to_be_clickable((By.ID, "trust-browser-button"))(driver):
+        if condition_trust_browser(driver):
             print_message("Duo Push approved")
-            trust_browser_button = driver.find_element(By.ID, "trust-browser-button")
+            trust_browser_button = condition_trust_browser(driver)
             trust_browser_button.click()
             return True
 
-        else:
+        elif condition_try_again_button_appear(driver):
             print_message("Duo Push timed out. Initiating a new push...")
-            try_again_button = driver.find_element(
-                By.CSS_SELECTOR, ".button--primary.button--xlarge.try-again-button"
-            )
+            try_again_button = condition_try_again_button_appear(driver)
             try_again_button.click()
+            return False
+
+        else:
+            print_message("Skip updating the browser for now")
+            skip_for_now_button = condition_skip_update_browser_button_appear(driver)
+            skip_for_now_button.click()
             return False
     except Exception as e:
         raise e
@@ -352,7 +364,7 @@ def handle_duo_2fa(driver: WebDriver) -> bool:
 
 
 def login_cusis(driver: WebDriver, email: str, password: str) -> None:
-    print_message("Logging in CUSIS to establish the session...")
+    print_message("Logging in CUSIS to establish the session...", notify=True, title="Logging in CUSIS")
     try:
         driver.get("https://cusis.cuhk.edu.hk/")
         WebDriverWait(driver, 10).until(
@@ -381,6 +393,7 @@ def send_notification_for_new_ureply(question_type: str) -> None:
         message,
         notify=True,
         title=f"New {question_type} uReply - {session_id}",
+        write_to_log=False,
     )
 
 
@@ -421,9 +434,10 @@ def handle_new_ureply(
 
     try:
         # Only perform actions if the session requires login (i.e. attendance taking)
-        if session_id.startswith("L") is False:
-            print_message("This session does not require login. Skipping...")
-            return
+        # Turns out some courses like to use uReply without login
+        # if session_id.startswith("L") is False:
+        #     print_message("This session does not require login. Skipping...")
+        #     return
 
         received_new_answer_event.set()  # Set the internal flag to True to stop AFK checking immediately
         if afk_checking_thread is not None:
