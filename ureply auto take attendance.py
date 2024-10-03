@@ -232,7 +232,8 @@ def check_afk_and_respond(textbox_element):
         # Print the checking message every 5 seconds
         if check_count % 5 == 0:
             print_message(
-                f"Waiting for you to type your answer...{afk_time_interval - (datetime.now() - start_time).seconds} seconds left"
+                f"Waiting for you to type your answer...{afk_time_interval -
+                                                         (datetime.now() - start_time).seconds} seconds left"
             )
 
         # Check every 1 second
@@ -260,7 +261,8 @@ def answer_ureply_question():
 
     try:
         if question_type == "mc":
-            xpath_expression = f'//button[@class="mc_choice_btn choice_btn mdl-button choice_{ureply_answer.lower()} mdl-js-button mdl-button--raised "]'
+            xpath_expression = f'//button[@class="mc_choice_btn choice_btn mdl-button choice_{
+                ureply_answer.lower()} mdl-js-button mdl-button--raised "]'
             try:
                 choice_element = WebDriverWait(
                     driver, 10
@@ -269,7 +271,8 @@ def answer_ureply_question():
                 )
             except:
                 raise Exception(
-                    f'Timeout waiting for the mc choice button "{ureply_answer}" to be clickable. Check if this choice is valid.'
+                    f'Timeout waiting for the mc choice button "{
+                        ureply_answer}" to be clickable. Check if this choice is valid.'
                 )
             choice_element.click()
 
@@ -280,7 +283,8 @@ def answer_ureply_question():
             # sleep(20)
 
             # Input typing answers
-            xpath_expression = f'//*[@class="mdl-textfield__input"]'  # "*" because the element is not always "textarea", it is "input" sometimes
+            # "*" because the element is not always "textarea", it is "input" sometimes
+            xpath_expression = f'//*[@class="mdl-textfield__input"]'
             textbox_element = None
             try:
                 textbox_element = WebDriverWait(driver, 10).until(
@@ -320,41 +324,35 @@ def handle_duo_2fa(driver: WebDriver) -> bool:
     print_message("Waiting for Duo 2FA...")
     try:
         # Condition 1: DUO Push approved, but prompted to trust the browser
-        condition_trust_browser_button_appear = EC.element_to_be_clickable(
-            (By.ID, "trust-browser-button")
-        )
+        trust_browser_button_locator = (By.ID, "dont-trust-browser-button")
         # Condition 2: DUO Push times out
-        condition_try_again_button_appear = EC.element_to_be_clickable(
-            (By.CSS_SELECTOR, ".button--primary.button--xlarge.try-again-button")
-        )
+        try_again_button_locator = (By.CSS_SELECTOR, ".button--primary.button--xlarge.try-again-button")
         # Condition 3: Duo prompted to update the browser before pushing
-        condition_skip_update_browser_button_appear = EC.element_to_be_clickable(
-            (By.XPATH, "//button[text()='Skip for now']")
-        )
+        skip_update_browser_button_locator = (By.XPATH, "//button[text()='Skip for now']")
 
         WebDriverWait(driver, 70).until(  # DUO Push times out after 60 seconds
             EC.any_of(
-                condition_trust_browser_button_appear,
-                condition_try_again_button_appear,
-                condition_skip_update_browser_button_appear,
+                EC.element_to_be_clickable(trust_browser_button_locator),
+                EC.element_to_be_clickable(try_again_button_locator),
+                EC.element_to_be_clickable(skip_update_browser_button_locator),
             )
         )
 
-        if condition_trust_browser_button_appear(driver):
+        if driver.find_elements(*trust_browser_button_locator):
             print_message("Duo Push approved")
-            trust_browser_button = condition_trust_browser_button_appear(driver)
+            trust_browser_button = driver.find_element(*trust_browser_button_locator)
             trust_browser_button.click()
             return True
 
-        elif condition_try_again_button_appear(driver):
+        elif driver.find_elements(*try_again_button_locator):
             print_message("Duo Push timed out. Initiating a new push...")
-            try_again_button = condition_try_again_button_appear(driver)
+            try_again_button = driver.find_element(*try_again_button_locator)
             try_again_button.click()
             return False
 
         else:
             print_message("Skip updating the browser for now")
-            skip_for_now_button = condition_skip_update_browser_button_appear(driver)
+            skip_for_now_button = driver.find_element(*skip_update_browser_button_locator)
             skip_for_now_button.click()
             return False
     except Exception as e:
@@ -532,7 +530,8 @@ if __name__ == "__main__":
         except Exception as e:
             print_message(f"[!] Error class name: {e.__class__.__name__}")
             print_message(
-                message=f'Retry in {get_retry_time_interval("error")} seconds...\n{"-"*10}\n{e}',  # show error message in the notification
+                message=f'Retry in {get_retry_time_interval("error")} seconds...\n{
+                    "-"*10}\n{e}',  # show error message in the notification
                 notify=True,
                 title=f"{e.__class__.__name__}",
             )
