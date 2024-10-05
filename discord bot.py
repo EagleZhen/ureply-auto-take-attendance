@@ -41,6 +41,9 @@ def publish_answer(current_time, session_id, question_type, ureply_answer):
 
 @bot.event
 async def on_ready():
+    '''
+    This function is called only at the start of this script to update the slash commands shown in the discord server
+    '''
     print(f'Logged in as "{bot.user}" ({bot.user.id})')
     try:
         synced = await bot.tree.sync()
@@ -81,7 +84,7 @@ async def ureply(
     view = View()
     button = Button(
         label="uReply Link",
-        url=f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={session_id}",
+        url=f"https://ureply.mobi/?join={session_id}",
         style=ButtonStyle.link,
     )
     view.add_item(button)
@@ -126,7 +129,7 @@ async def get_ureply(interaction: discord.Interaction):
     view = View()
     button = Button(
         label="uReply Link",
-        url=f"https://server4.ureply.mobi/student/cads/mobile_login_check.php?sessionid={ureply_content["Session ID"]}",
+        url=f"https://ureply.mobi/?join={ureply_content["Session ID"]}",
         style=ButtonStyle.link,
     )
     view.add_item(button)
