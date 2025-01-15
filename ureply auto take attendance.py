@@ -322,14 +322,14 @@ def answer_ureply_question():
 def handle_duo_2fa(driver: WebDriver) -> bool:
     print_message("Waiting for Duo 2FA...")
     try:
-        # Condition 1: DUO Push approved, but prompted to trust the browser
+        # Condition 1: Duo push approved, but prompted to trust the browser
         trust_browser_button_locator = (By.ID, "dont-trust-browser-button")
-        # Condition 2: DUO Push times out
+        # Condition 2: Duo push times out
         try_again_button_locator = (By.CSS_SELECTOR, ".button--primary.button--xlarge.try-again-button")
         # Condition 3: Duo prompted to update the browser before pushing
         skip_update_browser_button_locator = (By.XPATH, "//button[text()='Skip for now']")
 
-        WebDriverWait(driver, 70).until(  # DUO Push times out after 60 seconds
+        WebDriverWait(driver, 70).until(  # Duo push times out after 60 seconds
             EC.any_of(
                 EC.element_to_be_clickable(trust_browser_button_locator),
                 EC.element_to_be_clickable(try_again_button_locator),
@@ -339,7 +339,7 @@ def handle_duo_2fa(driver: WebDriver) -> bool:
 
         if driver.find_elements(*trust_browser_button_locator):
             print_message(
-                message="DUO push approved.",
+                message="Duo push approved.",
                 notify=True
             )
             trust_browser_button = driver.find_element(*trust_browser_button_locator)
@@ -362,13 +362,13 @@ def handle_duo_2fa(driver: WebDriver) -> bool:
             skip_for_now_button.click()
             return False
     except Exception as e:
-        print_message("An error occurred while handling DUO 2FA")
+        print_message("An error occurred while handling Duo 2FA")
         raise e
 
 
 def login_cusis(driver: WebDriver, email: str, password: str) -> None:
     print_message(
-        message="Wait and approve the DUO Push so that it won't be prompted again in the next few hours.",
+        message="Wait and approve the Duo push so that it won't be prompted again in the next few hours.",
         notify=True,
         title="Logging in CUSIS",
     )
@@ -379,7 +379,7 @@ def login_cusis(driver: WebDriver, email: str, password: str) -> None:
         )
         input_cuhk_credential(driver, email, password)
 
-        while handle_duo_2fa(driver) is False:  # Keep pushing DUO until it is approved
+        while handle_duo_2fa(driver) is False:  # Keep pushing Duo until it is approved
             pass
 
         WebDriverWait(driver, 10).until(
