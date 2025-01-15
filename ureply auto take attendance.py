@@ -16,7 +16,6 @@ from plyer import notification
 import json
 import requests
 import urllib.parse
-from random import randint
 
 
 def print_divider():
@@ -362,7 +361,7 @@ def handle_duo_2fa(driver: WebDriver) -> bool:
 
 def login_cusis(driver: WebDriver, email: str, password: str) -> None:
     print_message(
-        "Logging in CUSIS to establish the session...",
+        message="Please wait and approve the DUO Push so that it won't be prompted again in the next few hours",
         notify=True,
         title="Logging in CUSIS",
     )
@@ -391,7 +390,7 @@ def send_notification_for_new_ureply(question_type: str) -> None:
         message = "Note that the multiple choice answer may not be always correct."
 
     print_message(
-        message,
+        message=message,
         notify=True,
         title=f"New {question_type} uReply - {session_id}",
         write_to_log=False,
@@ -417,7 +416,9 @@ def join_ureply_session(driver: WebDriver, session_id: str) -> bool:
             raise e
         else:
             print_message(
-                f"[!] {e.alert_text} - The session may have ended. Skipping..."
+                message=f"The session may have ended. Skipping...",
+                notify=True,
+                title="Invalid Session Number",
             )
             return False
     except Exception as e:
