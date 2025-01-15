@@ -291,7 +291,7 @@ def answer_ureply_question():
                 )
             except:
                 raise Exception(
-                    "Timeout waiting for the textbox to be ready in the typing question"
+                    "Timeout waiting for the textbox to be ready in the typing question."
                 )
 
             if (
@@ -315,7 +315,7 @@ def answer_ureply_question():
             )
             afk_checking_thread.start()
     except Exception as e:
-        print_message("An error occurred while answering the uReply question")
+        print_message("An error occurred while answering the uReply question.")
         raise e  # Raise exception to retry in the main loop
 
 
@@ -338,13 +338,21 @@ def handle_duo_2fa(driver: WebDriver) -> bool:
         )
 
         if driver.find_elements(*trust_browser_button_locator):
-            print_message("Duo Push approved")
+            print_message(
+                message="Duo Push approved. Please keep the browser open.",
+                title="Duo Push Approved.",
+                notify=True
+            )
             trust_browser_button = driver.find_element(*trust_browser_button_locator)
             trust_browser_button.click()
             return True
 
         elif driver.find_elements(*try_again_button_locator):
-            print_message("Duo Push timed out. Initiating a new push...")
+            print_message(
+                message="Duo Push timed out. Initiating a new push...",
+                title="Duo Push Timed Out",
+                notify=True
+            )
             try_again_button = driver.find_element(*try_again_button_locator)
             try_again_button.click()
             return False
@@ -361,7 +369,7 @@ def handle_duo_2fa(driver: WebDriver) -> bool:
 
 def login_cusis(driver: WebDriver, email: str, password: str) -> None:
     print_message(
-        message="Please wait and approve the DUO Push so that it won't be prompted again in the next few hours",
+        message="Please wait and approve the DUO Push so that it won't be prompted again in the next few hours.",
         notify=True,
         title="Logging in CUSIS",
     )
