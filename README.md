@@ -4,6 +4,8 @@ for educational purposes only
 
 # Environment
 
+- Install Poetry by following the instructions [here](https://python-poetry.org/docs/#installation)
+
 -   Let the virtual environment be in the project directory for easy access
 
 ```bash
