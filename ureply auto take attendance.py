@@ -409,9 +409,8 @@ def join_ureply_session(driver: WebDriver, session_id: str) -> bool:
 
     # Invalid session number / session ended
     except UnexpectedAlertPresentException as e:
-        # Close the alert
-        alert = driver.switch_to.alert
-        alert.accept()
+        # alert = driver.switch_to.alert
+        # alert.accept()
 
         if e.alert_text != "Invalid session number":
             print_message("An uncommon alert was present")
