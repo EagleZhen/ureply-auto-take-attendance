@@ -44,7 +44,7 @@ def print_message(message, write_to_log=True, notify=False, title=""):
             log.write(formatted_datetime + " | " + message + "\n")
 
     if notify is True:
-        notification.notify(title=title, message=message, timeout=5)
+        notification.notify(title=title, message=message)
 
 
 def setup_selenium() -> WebDriver:
